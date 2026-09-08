@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Apple, Archive, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, CircleUserRound,
+  Apple, Archive, CalendarDays, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, CircleUserRound,
   Clock3, CookingPot, FileQuestion, Flame, History, LogOut, MessageSquareText, PackageOpen,
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
 } from 'lucide-react'
-import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, getGoal, prettyDate, shiftDate, todayISO } from './data'
+import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, formatWeekRange, getGoal, getWeekReport, getWeekStart, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
@@ -198,12 +198,69 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
   </>
 }
 
-function HistoryPage({ profile, data, setDate, goToday }) {
+const metricRows = [
+  ['calories', 'Ккал', 'ккал'],
+  ['protein', 'Белки', 'г'],
+  ['fat', 'Жиры', 'г'],
+  ['carbs', 'Углеводы', 'г'],
+]
+
+const signed = value => `${value > 0 ? '+' : ''}${round(value)}`
+
+function WeeklyReport({ profile, data, openDay }) {
+  const currentWeek = getWeekStart()
+  const [weekStart, setWeekStart] = useState(currentWeek)
+  const report = getWeekReport(data, profile.id, weekStart)
+  const isCurrentWeek = weekStart === currentWeek
+  const calorieRatio = report.plan.calories ? report.difference.calories / report.plan.calories : 0
+  const calorieDeltaClass = Math.abs(calorieRatio) <= .05 ? 'neutral' : calorieRatio < 0 ? 'good' : 'warn'
+  const weekLabel = formatWeekRange(weekStart)
+  return <>
+    <section className="week-picker" aria-label="Выбор недели">
+      <button className="icon-button" aria-label="Предыдущая неделя" onClick={() => setWeekStart(shiftDate(weekStart, -7))}><ChevronLeft /></button>
+      <div aria-live="polite"><span className="section-label">{isCurrentWeek ? 'ТЕКУЩАЯ НЕДЕЛЯ' : 'ВЫБРАННАЯ НЕДЕЛЯ'}</span><strong>{weekLabel}</strong></div>
+      <button className="icon-button" aria-label="Следующая неделя" disabled={isCurrentWeek} onClick={() => setWeekStart(shiftDate(weekStart, 7))}><ChevronRight /></button>
+    </section>
+    {!isCurrentWeek && <button className="current-week-button" onClick={() => setWeekStart(currentWeek)}><CalendarRange aria-hidden="true" />К текущей неделе</button>}
+    {!report.hasEntries && <div className="week-empty"><CalendarRange aria-hidden="true" /><div><strong>За эту неделю пока нет записей</strong><span>План рассчитан по действовавшим в эти дни целям.</span></div></div>}
+    <section className="week-summary" aria-labelledby="week-summary-title">
+      <div className="week-summary-head"><div><span className="section-label">ОТЧЁТ</span><h2 id="week-summary-title">Итог недели</h2></div><CalendarRange aria-hidden="true" /></div>
+      <div className="report-table" role="table" aria-label="План, факт и разница за неделю">
+        <div className="report-row report-header" role="row"><span role="columnheader">Показатель</span><span role="columnheader">План</span><span role="columnheader">Факт</span><span role="columnheader">Разница</span></div>
+        {metricRows.map(([key, label, unit]) => <div className="report-row" role="row" key={key}>
+          <strong role="rowheader">{label}</strong><span role="cell">{round(report.plan[key])}</span><span role="cell">{round(report.fact[key])}</span><span role="cell" className={`report-delta ${key === 'calories' ? calorieDeltaClass : 'neutral'}`}>{signed(report.difference[key])} <small>{unit}</small></span>
+        </div>)}
+      </div>
+      <div className="week-assessment" aria-label="Оценка недели">{report.assessment.map((text, index) => <p key={text} className={index === 0 ? 'primary-assessment' : ''}>{text}</p>)}</div>
+      <div className="average-title"><span className="section-label">СРЕДНЕЕ ЗА ДЕНЬ</span><span>7 календарных дней</span></div>
+      <div className="average-grid">{metricRows.map(([key, label, unit]) => <div key={key}><span>{label}</span><strong>{round(report.average[key])} <small>{unit}</small></strong></div>)}</div>
+    </section>
+    <section className="week-days" aria-labelledby="week-days-title">
+      <div className="week-days-head"><div><span className="section-label">ПО ДНЯМ</span><h2 id="week-days-title">Дни недели</h2></div><span>Факт / цель</span></div>
+      <div className="week-day-list">{report.days.map(day => {
+        const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' }).format(new Date(`${day.date}T12:00:00`)).replace('.', '')
+        const dateLabel = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(new Date(`${day.date}T12:00:00`)).replace('.', '')
+        return <button key={day.date} onClick={() => openDay(day.date)} aria-label={`${weekday}, ${dateLabel}: ${day.fact.calories} из ${day.plan.calories} килокалорий, ${day.status.label}`}>
+          <span className="day-date"><strong>{weekday}</strong><small>{dateLabel}</small></span>
+          <span className="day-calories"><strong>{round(day.fact.calories)} <small>/ {round(day.plan.calories)}</small></strong><small>{signed(day.difference.calories)} ккал</small></span>
+          <span className={`day-status ${day.status.key}`}>{day.status.label}</span><ChevronRight aria-hidden="true" />
+        </button>
+      })}</div>
+    </section>
+  </>
+}
+
+function HistoryPage({ viewer, profile, setProfile, data, setDate, goToday }) {
+  const [mode, setMode] = useState('week')
   const dates = [...new Set([...data.entries.filter(e => e.userId === profile.id).map(e => e.date), ...Object.keys(data.notes).filter(k => k.startsWith(profile.id + ':')).map(k => k.split(':')[1])])].sort().reverse()
-  return <><PageHead eyebrow="ДНЕВНИК" title="История" subtitle={`Все записи · ${profile.name}`} />{dates.length === 0 ? <div className="page-empty"><History aria-hidden="true" /><h2>История пока пуста</h2><p>Добавленные дни появятся здесь.</p><button className="primary" onClick={goToday}>Перейти к сегодня</button></div> : <div className="history-list">{dates.map(itemDate => {
+  return <><PageHead eyebrow="ДНЕВНИК" title="История" subtitle={`Дневник и отчёты · ${profile.name}`} />
+    {viewer.role === 'admin' && <div className="profile-switch compact history-profile" aria-label="Профиль отчёта">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}
+    <div className="history-modes" role="tablist" aria-label="Режим истории"><button role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}><CalendarRange aria-hidden="true" />Неделя</button><button role="tab" aria-selected={mode === 'days'} className={mode === 'days' ? 'active' : ''} onClick={() => setMode('days')}><CalendarDays aria-hidden="true" />Дни</button></div>
+    {mode === 'week' ? <WeeklyReport profile={profile} data={data} openDay={setDate} /> : dates.length === 0 ? <div className="page-empty history-empty"><History aria-hidden="true" /><h2>История пока пуста</h2><p>Добавленные дни появятся здесь.</p><button className="primary" onClick={goToday}>Перейти к сегодня</button></div> : <div className="history-list">{dates.map(itemDate => {
     const totals = sum(data.entries.filter(e => e.userId === profile.id && e.date === itemDate)); const goal = getGoal(data.goals, profile.id, itemDate)
     return <button key={itemDate} onClick={() => setDate(itemDate)}><CalendarDays aria-hidden="true" /><span><strong>{prettyDate(itemDate)}</strong><small>{round(totals.calories)} из {goal.calories} ккал</small></span><div className="mini-progress"><i style={{ width: `${Math.min(100, goal.calories ? totals.calories / goal.calories * 100 : 0)}%` }} /></div><ChevronRight aria-hidden="true" /></button>
-  })}</div>}</>
+  })}</div>}
+  </>
 }
 
 function ProductsPage({ data, update, notify }) {
@@ -254,7 +311,7 @@ export default function App() {
   const logout = () => { localStorage.removeItem('pff-session'); setPage('today'); setDate(todayISO()); setViewer(null) }
   return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
-    {page === 'history' && <HistoryPage profile={profile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
+    {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'products' && viewer.role === 'admin' && <ProductsPage data={data} update={update} notify={notify} />}
     {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} />}
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>

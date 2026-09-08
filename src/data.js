@@ -26,6 +26,66 @@ export const prettyDate = (iso) => new Intl.DateTimeFormat('ru-RU', { weekday: '
 export const shiftDate = (iso, days) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + days); return d.toLocaleDateString('en-CA') }
 export const getGoal = (goals, userId, date) => goals.filter(g => g.userId === userId && g.startDate <= date).sort((a,b) => b.startDate.localeCompare(a.startDate))[0] || { calories: 0, protein: 0, fat: 0, carbs: 0 }
 
+export const getWeekStart = (iso = todayISO()) => {
+  const date = new Date(`${iso}T12:00:00`)
+  const daysFromMonday = (date.getDay() + 6) % 7
+  date.setDate(date.getDate() - daysFromMonday)
+  return date.toLocaleDateString('en-CA')
+}
+
+export const formatWeekRange = weekStart => {
+  const start = new Date(`${weekStart}T12:00:00`)
+  const end = new Date(`${shiftDate(weekStart, 6)}T12:00:00`)
+  const day = value => value.getDate()
+  const month = value => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(value).replace(/^\d+\s*/, '')
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(start)} – ${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(end)}`
+  }
+  if (start.getMonth() !== end.getMonth()) return `${day(start)} ${month(start)} – ${day(end)} ${month(end)}`
+  return `${day(start)}–${day(end)} ${month(end)}`
+}
+
+const NUTRIENTS = ['calories', 'protein', 'fat', 'carbs']
+const emptyNutrients = () => ({ calories: 0, protein: 0, fat: 0, carbs: 0 })
+const addNutrients = (total, values) => NUTRIENTS.reduce((result, key) => ({ ...result, [key]: result[key] + Number(values[key] || 0) }), total)
+const calorieStatus = (fact, plan) => {
+  if (!plan) return { key: 'neutral', label: 'Нет цели' }
+  const deviation = (fact - plan) / plan
+  if (deviation < -.05) return { key: 'deficit', label: 'Дефицит' }
+  if (deviation > .05) return { key: 'surplus', label: 'Профицит' }
+  return { key: 'close', label: 'Близко к плану' }
+}
+
+export function getWeekReport(data, userId, weekStart) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDate(weekStart, index)
+    const entries = data.entries.filter(entry => entry.userId === userId && entry.date === date)
+    const fact = entries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
+    const goal = getGoal(data.goals, userId, date)
+    const plan = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: Number(goal[key] || 0) }), {})
+    const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - plan[key] }), {})
+    return { date, plan, fact, difference, status: calorieStatus(fact.calories, plan.calories), hasEntries: entries.length > 0 }
+  })
+  const plan = days.reduce((total, item) => addNutrients(total, item.plan), emptyNutrients())
+  const fact = days.reduce((total, item) => addNutrients(total, item.fact), emptyNutrients())
+  const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - plan[key] }), {})
+  const average = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] / 7 }), {})
+  const hasEntries = days.some(dayItem => dayItem.hasEntries)
+  const assessment = []
+  if (!hasEntries) {
+    assessment.push('Пока недостаточно данных для оценки')
+  } else if (plan.calories > 0) {
+    const calorieDeviation = difference.calories / plan.calories
+    assessment.push(calorieDeviation < -.05 ? 'Неделя в дефиците' : calorieDeviation > .05 ? 'Неделя в профиците' : 'Неделя близко к плану')
+  } else {
+    assessment.push('Недостаточно данных о цели')
+  }
+  if (hasEntries && plan.protein > 0 && fact.protein < plan.protein * .9) assessment.push('Белка немного не хватило')
+  if (hasEntries && plan.fat > 0 && fact.fat > plan.fat * 1.15) assessment.push('Жиров было многовато')
+  if (hasEntries && plan.carbs > 0 && fact.carbs < plan.carbs * .85) assessment.push('Углеводов было мало')
+  return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries }
+}
+
 export function calculate(food, amount, unit) {
   const measure = food.measures?.find(m => m.unit === unit)
   const baseQuantity = unit === food.baseUnit ? amount : amount * (measure?.amountInBase || food.baseAmount)
