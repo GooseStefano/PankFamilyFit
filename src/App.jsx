@@ -3,8 +3,9 @@ import {
   Apple, Archive, CalendarDays, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, CircleUserRound,
   Clock3, CookingPot, FileQuestion, Flame, History, LogOut, MessageSquareText, PackageOpen,
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
+  Scale,
 } from 'lucide-react'
-import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, formatWeekRange, getGoal, getWeekReport, getWeekStart, prettyDate, shiftDate, todayISO } from './data'
+import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
@@ -282,6 +283,120 @@ function ProductsPage({ data, update, notify }) {
   </>
 }
 
+function WeightModal({ initial, profile, existingDates, onClose, onSave }) {
+  const [date, setDate] = useState(initial?.date || todayISO())
+  const [weight, setWeight] = useState(initial?.weight ?? '')
+  const [note, setNote] = useState(initial?.note || '')
+  const [touched, setTouched] = useState(false)
+  const value = Number(weight)
+  const invalid = weight === '' || !Number.isFinite(value) || value <= 0 || value > 500
+  const willReplace = existingDates.includes(date) && date !== initial?.date
+  const submit = event => {
+    event.preventDefault(); setTouched(true)
+    if (invalid) return
+    const now = new Date().toISOString()
+    onSave({ id: initial?.id || crypto.randomUUID(), userId: profile.id, date, weight: value, note: note.trim(), createdAt: initial?.createdAt || now, updatedAt: now })
+  }
+  return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet weight-sheet" role="dialog" aria-modal="true" aria-labelledby="weight-modal-title">
+    <header><div><span className="section-label">ВЕС · {profile.name.toUpperCase()}</span><h2 id="weight-modal-title">{initial ? 'Изменить запись' : 'Добавить вес'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Закрыть"><X /></button></header>
+    <form onSubmit={submit}>
+      <label htmlFor="weight-date">Дата<input id="weight-date" type="date" max={todayISO()} value={date} onInput={event => setDate(event.currentTarget.value)} onChange={event => setDate(event.currentTarget.value)} /></label>
+      <label htmlFor="weight-value">Вес, кг<input id="weight-value" autoFocus type="number" inputMode="decimal" min="20" max="500" step="0.1" placeholder="Например, 118.4" value={weight} onBlur={() => setTouched(true)} onChange={event => { setWeight(event.target.value); setTouched(true) }} aria-invalid={touched && invalid} aria-describedby="weight-error" /></label>
+      <div id="weight-error" className="field-error" role="alert">{touched && invalid ? 'Введите вес от 20 до 500 кг.' : ''}</div>
+      {willReplace && <div className="replace-hint">На эту дату уже есть запись. Перед заменой попросим подтверждение.</div>}
+      <label htmlFor="weight-note">Комментарий<textarea id="weight-note" value={note} onChange={event => setNote(event.target.value)} placeholder="Например, утром натощак" /></label>
+      <button className="primary wide" disabled={invalid}>{initial ? 'Сохранить изменения' : 'Добавить вес'}</button>
+    </form>
+  </section></div>
+}
+
+function WeightChart({ entries }) {
+  if (entries.length < 2) return <div className="chart-empty"><Scale aria-hidden="true" /><strong>Недостаточно данных для графика</strong><span>Добавьте минимум две записи в выбранном периоде.</span></div>
+  const width = 360; const height = 190; const left = 38; const right = 12; const top = 18; const bottom = 30
+  const dates = entries.map(entry => new Date(`${entry.date}T12:00:00`).getTime())
+  const weights = entries.map(entry => Number(entry.weight))
+  const minDate = Math.min(...dates); const maxDate = Math.max(...dates)
+  const rawMin = Math.min(...weights); const rawMax = Math.max(...weights); const spread = Math.max(rawMax - rawMin, 1)
+  const minWeight = rawMin - spread * .2; const maxWeight = rawMax + spread * .2
+  const x = value => left + ((value - minDate) / (maxDate - minDate)) * (width - left - right)
+  const y = value => top + ((maxWeight - value) / (maxWeight - minWeight)) * (height - top - bottom)
+  const points = entries.map((entry, index) => `${x(dates[index])},${y(weights[index])}`).join(' ')
+  const dateLabel = iso => new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit' }).format(new Date(`${iso}T12:00:00`))
+  return <div className="weight-chart-wrap">
+    <svg className="weight-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`График веса: от ${weights[0]} до ${weights.at(-1)} килограмма, точек: ${entries.length}`}>
+      {[0, .5, 1].map(ratio => {
+        const lineY = top + ratio * (height - top - bottom); const label = maxWeight - ratio * (maxWeight - minWeight)
+        return <g key={ratio}><line x1={left} x2={width - right} y1={lineY} y2={lineY} className="chart-grid-line" /><text x={left - 6} y={lineY + 3} textAnchor="end" className="chart-axis-label">{round(label)}</text></g>
+      })}
+      <polyline points={points} className="chart-line" />
+      {entries.map((entry, index) => <circle key={entry.id} cx={x(dates[index])} cy={y(weights[index])} r="5" className="chart-point"><title>{dateLabel(entry.date)} · {entry.weight} кг</title></circle>)}
+      <text x={left} y={height - 8} className="chart-axis-label">{dateLabel(entries[0].date)}</text>
+      <text x={width - right} y={height - 8} textAnchor="end" className="chart-axis-label">{dateLabel(entries.at(-1).date)}</text>
+    </svg>
+  </div>
+}
+
+function ChangeValue({ change }) {
+  if (!change) return <span className="insufficient">Недостаточно данных</span>
+  const value = round(change.value)
+  return <><strong className={value < 0 ? 'weight-down' : value > 0 ? 'weight-up' : ''}>{value > 0 ? '+' : ''}{value} кг</strong><small>от {new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(new Date(`${change.baseline.date}T12:00:00`)).replace('.', '')}</small></>
+}
+
+function weightEntryWord(count) {
+  const mod100 = count % 100
+  const mod10 = count % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'записей'
+  if (mod10 === 1) return 'запись'
+  if (mod10 >= 2 && mod10 <= 4) return 'записи'
+  return 'записей'
+}
+
+function WeightPage({ viewer, profile, setProfile, data, update, notify }) {
+  const [period, setPeriod] = useState('30')
+  const [modal, setModal] = useState(null)
+  const stats = getWeightStats(data.weightEntries, profile.id)
+  const chartEntries = filterWeightPeriod(stats.records, period)
+  const save = entry => {
+    const duplicate = data.weightEntries.find(item => item.userId === profile.id && item.date === entry.date && item.id !== entry.id)
+    if (duplicate && !window.confirm(`На ${new Date(`${entry.date}T12:00:00`).toLocaleDateString('ru-RU')} уже есть запись ${duplicate.weight} кг. Заменить её?`)) return
+    const editing = Boolean(modal?.entry || duplicate)
+    const nextEntry = duplicate ? { ...entry, id: duplicate.id, createdAt: duplicate.createdAt } : entry
+    update(current => ({ ...current, weightEntries: [...current.weightEntries.filter(item => item.id !== entry.id && item.id !== duplicate?.id), nextEntry] }))
+    setModal(null); notify(editing ? 'Вес обновлён' : 'Вес добавлен')
+  }
+  const remove = entry => {
+    if (!window.confirm(`Удалить запись ${entry.weight} кг за ${new Date(`${entry.date}T12:00:00`).toLocaleDateString('ru-RU')}?`)) return
+    update(current => ({ ...current, weightEntries: current.weightEntries.filter(item => item.id !== entry.id) })); notify('Запись веса удалена')
+  }
+  const existingDates = stats.records.map(entry => entry.date)
+  return <>
+    <PageHead eyebrow="ПРОГРЕСС" title="Вес" subtitle={`Динамика веса · ${profile.name}`} />
+    {viewer.role === 'admin' && <div className="profile-switch compact weight-profile" aria-label="Профиль веса">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}
+    {stats.latest ? <section className="weight-overview">
+      <div className="latest-weight"><span className="section-label">ПОСЛЕДНИЙ ВЕС</span><strong>{stats.latest.weight} <small>кг</small></strong><span>{prettyDate(stats.latest.date)}</span></div>
+      <div className="weight-stats">
+        <div><span>За неделю</span><ChangeValue change={stats.weekChange} /></div>
+        <div><span>За месяц</span><ChangeValue change={stats.monthChange} /></div>
+        <div><span>Среднее недели</span>{stats.weekAverage === null ? <span className="insufficient">Недостаточно данных</span> : <><strong>{round(stats.weekAverage)} кг</strong><small>{stats.weekCount} {weightEntryWord(stats.weekCount)}</small></>}</div>
+      </div>
+    </section> : <div className="weight-empty"><Scale aria-hidden="true" /><h2>Записей веса пока нет</h2><p>Добавьте первое измерение, чтобы начать следить за динамикой.</p></div>}
+    <button className="primary wide add-weight-button" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить вес</button>
+    <section className="weight-chart-card" aria-labelledby="weight-chart-title">
+      <div className="weight-section-head"><div><span className="section-label">ДИНАМИКА</span><h2 id="weight-chart-title">График</h2></div><span>{chartEntries.length} {weightEntryWord(chartEntries.length)}</span></div>
+      <div className="weight-periods" role="tablist" aria-label="Период графика">{[['7', '7 дней'], ['30', '30 дней'], ['all', 'Всё время']].map(([key, label]) => <button role="tab" aria-selected={period === key} className={period === key ? 'active' : ''} key={key} onClick={() => setPeriod(key)}>{label}</button>)}</div>
+      <WeightChart entries={chartEntries} />
+    </section>
+    <section className="weight-list-card" aria-labelledby="weight-list-title">
+      <div className="weight-section-head"><div><span className="section-label">ИСТОРИЯ</span><h2 id="weight-list-title">Записи</h2></div><span>{stats.records.length}</span></div>
+      {stats.records.length ? <div className="weight-list">{[...stats.records].reverse().map(entry => <article key={entry.id}>
+        <div className="weight-entry-main"><strong>{entry.weight} кг</strong><span>{prettyDate(entry.date)}</span>{entry.note && <p>{entry.note}</p>}</div>
+        <div className="weight-entry-actions"><button aria-label={`Изменить вес за ${entry.date}`} onClick={() => setModal({ entry })}><Pencil /></button><button aria-label={`Удалить вес за ${entry.date}`} onClick={() => remove(entry)}><Trash2 /></button></div>
+      </article>)}</div> : <div className="list-empty">Здесь появятся сохранённые измерения.</div>}
+    </section>
+    {modal && <WeightModal initial={modal.entry || null} profile={profile} existingDates={existingDates} onClose={() => setModal(null)} onSave={save} />}
+  </>
+}
+
 function SettingsPage({ viewer, data, update, onLogout, notify }) {
   const [profileId, setProfileId] = useState('danya'); const latest = getGoal(data.goals, profileId, todayISO()); const [form, setForm] = useState({ ...latest, startDate: todayISO() })
   const select = id => { setProfileId(id); const goal = getGoal(data.goals, id, todayISO()); setForm({ ...goal, startDate: todayISO() }) }
@@ -296,7 +411,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify }) {
 function PageHead({ eyebrow, title, subtitle }) { return <header className="page-head"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></header> }
 
 function BottomNav({ viewer, page, setPage }) {
-  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'История'], ...(viewer.role === 'admin' ? [['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
+  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'История'], ['weight', Scale, 'Вес'], ...(viewer.role === 'admin' ? [['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
   return <nav className="bottom-nav" aria-label="Основная навигация">{links.map(([key, Icon, label]) => <button key={key} className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => setPage(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
 }
 
@@ -312,6 +427,7 @@ export default function App() {
   return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
+    {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
     {page === 'products' && viewer.role === 'admin' && <ProductsPage data={data} update={update} notify={notify} />}
     {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} />}
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>

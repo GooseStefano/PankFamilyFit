@@ -21,6 +21,20 @@ export const INITIAL_GOALS = [
   { id: 'gv', userId: 'vika', startDate: '2026-09-08', calories: 1600, protein: 110, fat: 50, carbs: 160 },
 ]
 
+export const INITIAL_WEIGHT_ENTRIES = [
+  { id: 'wd1', userId: 'danya', date: '2026-08-01', weight: 121.2, note: 'Старт', createdAt: '2026-08-01T08:00:00.000Z', updatedAt: '2026-08-01T08:00:00.000Z' },
+  { id: 'wd2', userId: 'danya', date: '2026-08-09', weight: 120.4, note: '', createdAt: '2026-08-09T08:00:00.000Z', updatedAt: '2026-08-09T08:00:00.000Z' },
+  { id: 'wd3', userId: 'danya', date: '2026-08-18', weight: 119.9, note: '', createdAt: '2026-08-18T08:00:00.000Z', updatedAt: '2026-08-18T08:00:00.000Z' },
+  { id: 'wd4', userId: 'danya', date: '2026-08-27', weight: 119.2, note: 'После поездки', createdAt: '2026-08-27T08:00:00.000Z', updatedAt: '2026-08-27T08:00:00.000Z' },
+  { id: 'wd5', userId: 'danya', date: '2026-09-01', weight: 118.9, note: '', createdAt: '2026-09-01T08:00:00.000Z', updatedAt: '2026-09-01T08:00:00.000Z' },
+  { id: 'wd6', userId: 'danya', date: '2026-09-05', weight: 118.6, note: '', createdAt: '2026-09-05T08:00:00.000Z', updatedAt: '2026-09-05T08:00:00.000Z' },
+  { id: 'wd7', userId: 'danya', date: '2026-09-08', weight: 118.4, note: 'Утром натощак', createdAt: '2026-09-08T08:00:00.000Z', updatedAt: '2026-09-08T08:00:00.000Z' },
+  { id: 'wv1', userId: 'vika', date: '2026-08-03', weight: 64.1, note: '', createdAt: '2026-08-03T08:00:00.000Z', updatedAt: '2026-08-03T08:00:00.000Z' },
+  { id: 'wv2', userId: 'vika', date: '2026-08-17', weight: 63.8, note: '', createdAt: '2026-08-17T08:00:00.000Z', updatedAt: '2026-08-17T08:00:00.000Z' },
+  { id: 'wv3', userId: 'vika', date: '2026-09-01', weight: 63.5, note: '', createdAt: '2026-09-01T08:00:00.000Z', updatedAt: '2026-09-01T08:00:00.000Z' },
+  { id: 'wv4', userId: 'vika', date: '2026-09-07', weight: 63.3, note: 'После завтрака', createdAt: '2026-09-07T08:00:00.000Z', updatedAt: '2026-09-07T08:00:00.000Z' },
+]
+
 export const todayISO = () => new Date().toLocaleDateString('en-CA')
 export const prettyDate = (iso) => new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${iso}T12:00:00`))
 export const shiftDate = (iso, days) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + days); return d.toLocaleDateString('en-CA') }
@@ -84,6 +98,30 @@ export function getWeekReport(data, userId, weekStart) {
   if (hasEntries && plan.fat > 0 && fact.fat > plan.fat * 1.15) assessment.push('Жиров было многовато')
   if (hasEntries && plan.carbs > 0 && fact.carbs < plan.carbs * .85) assessment.push('Углеводов было мало')
   return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries }
+}
+
+export function getWeightStats(entries, userId, referenceDate = todayISO()) {
+  const records = entries.filter(entry => entry.userId === userId && entry.date <= referenceDate).sort((a, b) => a.date.localeCompare(b.date))
+  const latest = records.at(-1) || null
+  const changeFrom = days => {
+    if (!latest) return null
+    const targetDate = shiftDate(latest.date, -days)
+    const baseline = records.filter(entry => entry.date <= targetDate).at(-1)
+    return baseline ? { value: Number(latest.weight) - Number(baseline.weight), baseline } : null
+  }
+  const weekStart = getWeekStart(referenceDate)
+  const weekEnd = shiftDate(weekStart, 6)
+  const weekRecords = records.filter(entry => entry.date >= weekStart && entry.date <= weekEnd)
+  const weekAverage = weekRecords.length ? weekRecords.reduce((total, entry) => total + Number(entry.weight), 0) / weekRecords.length : null
+  return { records, latest, weekAverage, weekCount: weekRecords.length, weekChange: changeFrom(7), monthChange: changeFrom(30) }
+}
+
+export function filterWeightPeriod(entries, period, referenceDate = todayISO()) {
+  const sorted = [...entries].filter(entry => entry.date <= referenceDate).sort((a, b) => a.date.localeCompare(b.date))
+  if (period === 'all') return sorted
+  const days = period === '7' ? 7 : 30
+  const start = shiftDate(referenceDate, -(days - 1))
+  return sorted.filter(entry => entry.date >= start)
 }
 
 export function calculate(food, amount, unit) {
