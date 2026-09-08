@@ -5,7 +5,7 @@ import {
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
   Scale,
 } from 'lucide-react'
-import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
+import { CATEGORIES, MEALS, UNIT_LABELS, USERS, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
@@ -99,7 +99,8 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
         {visibleFoods.length > 0 ? <div className="food-results">{visibleFoods.map(f => <button type="button" key={f.id} onClick={() => choose(f)}>
           <div className="food-icon"><Utensils aria-hidden="true" /></div><span><strong>{f.name}</strong><small>{f.calories} ккал · Б {f.protein} · Ж {f.fat} · У {f.carbs}</small></span><ChevronRight aria-hidden="true" />
         </button>)}</div> : <div className="compact-empty"><Search aria-hidden="true" /><strong>{query ? 'Ничего не нашли' : 'База продуктов пуста'}</strong><span>{query ? 'Попробуйте другое название.' : 'Создайте первый продукт.'}</span></div>}
-        <button type="button" className="secondary wide" onClick={() => onCreate({ meal, date })}><PackagePlus aria-hidden="true" />Создать продукт</button>
+        <div className="quick-create-actions"><button type="button" className="secondary" onClick={() => onCreate({ meal, date, type: 'product' })}><PackagePlus aria-hidden="true" />Создать продукт</button>
+          <button type="button" className="secondary" onClick={() => onCreate({ meal, date, type: 'dish' })}><CookingPot aria-hidden="true" />Простое блюдо</button></div>
         <button className="primary wide" disabled>Сначала выберите продукт</button>
       </> : <>
         <button type="button" className="selected-food" onClick={() => setSelected(null)}><span><small>Продукт</small><strong>{selected.name}</strong></span><span>Изменить</span></button>
@@ -116,7 +117,86 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
   </div>
 }
 
-function ProductModal({ type = 'product', onClose, onSave }) {
+function RecipeModal({ foods, initial, initialIngredients, currentUser, onClose, onSave }) {
+  const [name, setName] = useState(initial?.name || '')
+  const [category, setCategory] = useState(initial?.category || 'Готовое')
+  const [cookedWeight, setCookedWeight] = useState(initial?.cookedWeight || '')
+  const [favorite, setFavorite] = useState(Boolean(initial?.favorite))
+  const [ingredients, setIngredients] = useState(() => initialIngredients.map(item => ({ id: item.id, foodItemId: item.ingredientFoodItemId, amount: item.amount, unit: item.unitLabel })))
+  const existingIngredientIds = new Set(initialIngredients.map(item => item.ingredientFoodItemId))
+  const availableFoods = foods.filter(food => food.id !== initial?.id && (!food.archived || existingIngredientIds.has(food.id)))
+  const addIngredient = () => setIngredients(rows => [...rows, { id: crypto.randomUUID(), foodItemId: '', amount: '', unit: 'g' }])
+  const changeIngredient = (id, patch) => setIngredients(rows => rows.map(row => row.id === id ? { ...row, ...patch } : row))
+  const prepared = ingredients.map(row => {
+    const food = availableFoods.find(item => item.id === row.foodItemId)
+    const amount = Number(row.amount)
+    const nutrition = food && amount > 0 ? calculate(food, amount, row.unit) : null
+    return { ...row, food, amount, nutrition }
+  })
+  const snapshots = prepared.filter(row => row.food && row.nutrition).map(row => ({
+    id: row.id,
+    recipeFoodItemId: initial?.id || null,
+    ingredientFoodItemId: row.food.id,
+    amount: row.amount,
+    unitLabel: row.unit,
+    caloriesSnapshot: row.nutrition.calories,
+    proteinSnapshot: row.nutrition.protein,
+    fatSnapshot: row.nutrition.fat,
+    carbsSnapshot: row.nutrition.carbs,
+    createdAt: new Date().toISOString(),
+  }))
+  const cookedWeightNumber = Number(cookedWeight)
+  const calculation = calculateRecipe(snapshots, cookedWeightNumber)
+  const valid = Boolean(name.trim()) && cookedWeightNumber > 0 && ingredients.length > 0 && prepared.every(row => row.food && row.amount > 0)
+  const ingredientWord = count => {
+    const mod100 = count % 100; const mod10 = count % 10
+    if (mod100 >= 11 && mod100 <= 14) return 'ингредиентов'
+    if (mod10 === 1) return 'ингредиент'
+    if (mod10 >= 2 && mod10 <= 4) return 'ингредиента'
+    return 'ингредиентов'
+  }
+  const submit = event => {
+    event.preventDefault()
+    if (!valid) return
+    const now = new Date().toISOString()
+    const id = initial?.id || crypto.randomUUID()
+    onSave({
+      ...initial, id, name: name.trim(), type: 'dish', sourceType: 'recipe', category,
+      baseUnit: 'g', baseAmount: 100, cookedWeight: cookedWeightNumber,
+      calories: round(calculation.per100.calories), protein: round(calculation.per100.protein),
+      fat: round(calculation.per100.fat), carbs: round(calculation.per100.carbs),
+      favorite, archived: false, usageCount: initial?.usageCount || 0, measures: initial?.measures || [],
+      createdBy: initial?.createdBy || currentUser.id, recipeVersion: (initial?.recipeVersion || 0) + 1,
+      createdAt: initial?.createdAt || now, updatedAt: now,
+    }, snapshots.map(item => ({ ...item, recipeFoodItemId: id })))
+  }
+  return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet recipe-sheet" role="dialog" aria-modal="true" aria-labelledby="recipe-title">
+    <header><div><span className="section-label">ДОМАШНЕЕ БЛЮДО</span><h2 id="recipe-title">{initial ? 'Изменить рецепт' : 'Блюдо из ингредиентов'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Закрыть"><X /></button></header>
+    <form onSubmit={submit}>
+      <label htmlFor="recipe-name">Название<input id="recipe-name" autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Например, домашний плов" aria-invalid={!name.trim()} aria-describedby="recipe-name-error" /><span id="recipe-name-error" className="recipe-field-error">{!name.trim() ? 'Введите название блюда.' : ''}</span></label>
+      <div className="form-grid"><label htmlFor="recipe-category">Категория<select id="recipe-category" value={category} onChange={event => setCategory(event.target.value)}>{CATEGORIES.slice(1).map(item => <option key={item}>{item}</option>)}</select></label>
+        <label htmlFor="recipe-weight">Готовый вес, г<input id="recipe-weight" type="number" inputMode="decimal" min="0.1" step="0.1" value={cookedWeight} onChange={event => setCookedWeight(event.target.value)} placeholder="2400" aria-invalid={cookedWeightNumber <= 0} aria-describedby="recipe-weight-error" /><span id="recipe-weight-error" className="recipe-field-error">{cookedWeightNumber <= 0 ? 'Укажите вес больше нуля.' : ''}</span></label></div>
+      <label className="recipe-favorite"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} /><span><Star aria-hidden="true" />Добавить в любимые</span></label>
+      <div className="recipe-ingredients-head"><div><span className="section-label">СОСТАВ</span><h3>Ингредиенты</h3></div><button type="button" className="small-add" onClick={addIngredient}><Plus aria-hidden="true" />Ингредиент</button></div>
+      {ingredients.length === 0 ? <div className="recipe-empty"><CookingPot aria-hidden="true" /><strong>Ингредиентов пока нет</strong><span>Добавьте продукты из базы, чтобы рассчитать блюдо.</span></div> : <div className="recipe-ingredient-list">{prepared.map((row, index) => {
+        const units = row.food ? [{ unit: row.food.baseUnit, label: UNIT_LABELS[row.food.baseUnit] }, ...(row.food.measures || [])] : []
+        return <article className="recipe-ingredient" key={row.id}><div className="recipe-ingredient-title"><strong>Ингредиент {index + 1}</strong><button type="button" aria-label={`Удалить ингредиент ${index + 1}`} onClick={() => setIngredients(rows => rows.filter(item => item.id !== row.id))}><Trash2 /></button></div>
+          <label>Продукт<select value={row.foodItemId} aria-invalid={!row.food} aria-describedby={`ingredient-error-${row.id}`} onChange={event => { const food = availableFoods.find(item => item.id === event.target.value); changeIngredient(row.id, food ? { foodItemId: food.id, amount: food.baseAmount, unit: food.baseUnit } : { foodItemId: '', amount: '', unit: 'g' }) }}><option value="">Выберите продукт</option>{availableFoods.map(food => <option key={food.id} value={food.id}>{food.name}</option>)}</select></label>
+          <div className="form-grid"><label>Количество<input type="number" inputMode="decimal" min="0.1" step="0.1" value={row.amount} aria-invalid={row.amount <= 0} aria-describedby={`ingredient-error-${row.id}`} onChange={event => changeIngredient(row.id, { amount: event.target.value })} /></label><label>Единица<select value={row.unit} disabled={!row.food} onChange={event => changeIngredient(row.id, { unit: event.target.value })}>{units.map(item => <option key={item.unit} value={item.unit}>{item.label}</option>)}</select></label></div>
+          {!row.food ? <div id={`ingredient-error-${row.id}`} className="ingredient-error" role="alert">Выберите продукт.</div> : row.amount <= 0 ? <div id={`ingredient-error-${row.id}`} className="ingredient-error" role="alert">Количество должно быть больше нуля.</div> : <div className="ingredient-nutrition"><span><strong>{round(row.nutrition.calories)}</strong> ккал</span><span>Б <strong>{round(row.nutrition.protein)}</strong></span><span>Ж <strong>{round(row.nutrition.fat)}</strong></span><span>У <strong>{round(row.nutrition.carbs)}</strong></span></div>}
+        </article>
+      })}</div>}
+      <section className="recipe-preview" aria-live="polite" aria-label="Предпросмотр расчёта блюда"><div className="recipe-preview-head"><div><span className="section-label">РАСЧЁТ</span><h3>Предпросмотр</h3></div><span>{ingredients.length} {ingredientWord(ingredients.length)} · {cookedWeightNumber > 0 ? `${cookedWeightNumber} г` : 'вес не указан'}</span></div>
+        <div className="recipe-preview-block"><strong>Всего в блюде</strong><div className="ingredient-nutrition"><span><strong>{round(calculation.totals.calories)}</strong> ккал</span><span>Б <strong>{round(calculation.totals.protein)}</strong></span><span>Ж <strong>{round(calculation.totals.fat)}</strong></span><span>У <strong>{round(calculation.totals.carbs)}</strong></span></div></div>
+        <div className="recipe-preview-block accent"><strong>На 100 г</strong><div className="ingredient-nutrition"><span><strong>{cookedWeightNumber > 0 ? round(calculation.per100.calories) : '—'}</strong> ккал</span><span>Б <strong>{cookedWeightNumber > 0 ? round(calculation.per100.protein) : '—'}</strong></span><span>Ж <strong>{cookedWeightNumber > 0 ? round(calculation.per100.fat) : '—'}</strong></span><span>У <strong>{cookedWeightNumber > 0 ? round(calculation.per100.carbs) : '—'}</strong></span></div></div>
+      </section>
+      <div className="recipe-validation" role="status">{valid ? 'Блюдо готово к сохранению.' : 'Заполните название, готовый вес и все ингредиенты.'}</div>
+      <button className="primary wide" disabled={!valid}>Сохранить блюдо</button>
+    </form>
+  </section></div>
+}
+
+function ProductModal({ type = 'product', currentUser, onClose, onSave }) {
   const [form, setForm] = useState({ name: '', type, category: 'Другое', baseUnit: 'g', baseAmount: 100, calories: '', protein: '', fat: '', carbs: '', measures: [] })
   const field = (key, val) => setForm(f => ({ ...f, [key]: val }))
   const baseUnit = val => setForm(f => {
@@ -135,7 +215,7 @@ function ProductModal({ type = 'product', onClose, onSave }) {
   const measureField = (index, key, val) => setForm(f => ({ ...f, measures: f.measures.map((m, i) => i === index ? { ...m, [key]: val } : m) }))
   const submit = e => {
     e.preventDefault()
-    onSave({ ...form, id: crypto.randomUUID(), baseAmount: Number(form.baseAmount), calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs), favorite: false, archived: false, usageCount: 0, measures: form.measures.map(m => ({ ...m, amountInBase: Number(m.amountInBase) })) })
+    onSave({ ...form, id: crypto.randomUUID(), sourceType: 'manual', baseAmount: Number(form.baseAmount), calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs), favorite: false, archived: false, usageCount: 0, createdBy: currentUser.id, measures: form.measures.map(m => ({ ...m, amountInBase: Number(m.amountInBase) })) })
   }
   return <div className="scrim" onMouseDown={e => e.target === e.currentTarget && onClose()}><section className="sheet" role="dialog" aria-modal="true" aria-labelledby="product-title">
     <header><div><span className="section-label">БАЗА</span><h2 id="product-title">{type === 'dish' ? 'Новое блюдо' : 'Новый продукт'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Закрыть"><X /></button></header>
@@ -178,7 +258,7 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
   }
   const createFood = food => {
     update(d => ({ ...d, foods: [...d.foods, food] })); const context = creating
-    setCreating(null); setModal({ meal: context?.meal || meal, date: context?.date || date }); notify('Продукт сохранён')
+    setCreating(null); setModal({ meal: context?.meal || meal, date: context?.date || date }); notify(food.type === 'dish' ? 'Блюдо сохранено' : 'Продукт сохранён')
   }
   const saveNote = value => { update(d => ({ ...d, notes: { ...d.notes, [noteKey]: value } })); notify('Комментарий сохранён') }
   const deleteNote = () => {
@@ -195,7 +275,7 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
     </section>
     <DayNote key={noteKey} value={note} onSave={saveNote} onDelete={deleteNote} />
     {modal && <AddFoodModal foods={data.foods} initial={modal.entry || null} initialMeal={modal.meal || meal} initialDate={modal.date || date} onClose={() => setModal(null)} onSave={saveEntry} onCreate={context => { setModal(null); setCreating(context) }} />}
-    {creating && <ProductModal onClose={() => setCreating(null)} onSave={createFood} />}
+    {creating && <ProductModal type={creating.type || 'product'} currentUser={viewer} onClose={() => setCreating(null)} onSave={createFood} />}
   </>
 }
 
@@ -264,12 +344,21 @@ function HistoryPage({ viewer, profile, setProfile, data, setDate, goToday }) {
   </>
 }
 
-function ProductsPage({ data, update, notify }) {
+function ProductsPage({ viewer, data, update, notify }) {
   const [query, setQuery] = useState(''); const [category, setCategory] = useState('Все'); const [favorites, setFavorites] = useState(false); const [modal, setModal] = useState(null)
   const activeFoods = data.foods.filter(f => !f.archived)
   const foods = activeFoods.filter(f => f.name.toLowerCase().includes(query.trim().toLowerCase()) && (category === 'Все' || f.category === category) && (!favorites || f.favorite)).sort((a, b) => b.usageCount - a.usageCount)
   const filtersActive = Boolean(query.trim()) || category !== 'Все' || favorites
-  const save = food => { update(d => ({ ...d, foods: [...d.foods, food] })); setModal(null); notify('Продукт сохранён') }
+  const save = food => { update(d => ({ ...d, foods: [...d.foods, food] })); setModal(null); notify(food.type === 'dish' ? 'Блюдо сохранено' : 'Продукт сохранён') }
+  const saveRecipe = (food, ingredients) => {
+    const editing = data.foods.some(item => item.id === food.id)
+    update(d => ({
+      ...d,
+      foods: editing ? d.foods.map(item => item.id === food.id ? food : item) : [...d.foods, food],
+      recipeIngredients: [...d.recipeIngredients.filter(item => item.recipeFoodItemId !== food.id), ...ingredients],
+    }))
+    setModal(null); notify(editing ? 'Блюдо обновлено' : 'Блюдо сохранено')
+  }
   const archive = food => {
     if (!window.confirm(`Архивировать «${food.name}»? Старые записи в дневнике сохранятся.`)) return
     update(d => ({ ...d, foods: d.foods.map(x => x.id === food.id ? { ...x, archived: true } : x) })); notify('Продукт архивирован')
@@ -277,9 +366,9 @@ function ProductsPage({ data, update, notify }) {
   return <><PageHead eyebrow="БАЗА" title="Продукты" subtitle={`${activeFoods.length} продуктов и блюд`} />
     <div className="search"><Search aria-hidden="true" /><input aria-label="Поиск по продуктам" value={query} onChange={e => setQuery(e.target.value)} placeholder="Поиск по продуктам" /></div>
     <div className="filter-row"><select aria-label="Категория" value={category} onChange={e => setCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select><button className={favorites ? 'filter active' : 'filter'} aria-pressed={favorites} onClick={() => setFavorites(!favorites)}><Star aria-hidden="true" />Любимые</button></div>
-    <div className="product-actions"><button className="primary" onClick={() => setModal('product')}><Plus aria-hidden="true" />Продукт</button><button className="secondary" onClick={() => setModal('dish')}><Plus aria-hidden="true" />Блюдо</button></div>
-    {foods.length > 0 ? <div className="product-list">{foods.map(f => <article key={f.id}><button className="star-button" aria-label={f.favorite ? 'Убрать из любимых' : 'Добавить в любимые'} aria-pressed={f.favorite} onClick={() => update(d => ({ ...d, foods: d.foods.map(x => x.id === f.id ? { ...x, favorite: !x.favorite } : x) }))}><Star className={f.favorite ? 'filled' : ''} /></button><div><strong>{f.name}</strong><span>{f.category} · {f.type === 'dish' ? 'Блюдо' : 'Продукт'}</span><small>{f.calories} ккал · Б {f.protein} · Ж {f.fat} · У {f.carbs}</small></div><button className="archive-button" aria-label={`Архивировать ${f.name}`} onClick={() => archive(f)}><Archive /></button></article>)}</div> : <div className="page-empty products-empty"><PackageOpen aria-hidden="true" /><h2>{activeFoods.length === 0 ? 'База продуктов пуста' : 'Ничего не нашли'}</h2><p>{activeFoods.length === 0 ? 'Создайте первый продукт или блюдо.' : 'Измените запрос или сбросьте фильтры.'}</p>{filtersActive && <button className="secondary" onClick={() => { setQuery(''); setCategory('Все'); setFavorites(false) }}>Сбросить фильтры</button>}</div>}
-    {modal && <ProductModal type={modal} onClose={() => setModal(null)} onSave={save} />}
+    <div className="product-actions"><button className="primary" onClick={() => setModal({ type: 'product' })}><Plus aria-hidden="true" />Продукт</button><button className="secondary" onClick={() => setModal({ type: 'dish' })}><Plus aria-hidden="true" />Простое блюдо</button><button className="secondary recipe-create" onClick={() => setModal({ type: 'recipe' })}><CookingPot aria-hidden="true" />Из ингредиентов</button></div>
+    {foods.length > 0 ? <div className="product-list">{foods.map(f => <article key={f.id}><button className="star-button" aria-label={f.favorite ? 'Убрать из любимых' : 'Добавить в любимые'} aria-pressed={f.favorite} onClick={() => update(d => ({ ...d, foods: d.foods.map(x => x.id === f.id ? { ...x, favorite: !x.favorite } : x) }))}><Star className={f.favorite ? 'filled' : ''} /></button><div><strong>{f.name}</strong><span>{f.category} · {f.sourceType === 'recipe' ? `Рецепт · версия ${f.recipeVersion || 1}` : f.type === 'dish' ? 'Простое блюдо' : 'Продукт'}</span><small>{f.calories} ккал · Б {f.protein} · Ж {f.fat} · У {f.carbs}</small></div><div className="product-item-actions">{f.sourceType === 'recipe' && <button aria-label={`Изменить рецепт ${f.name}`} onClick={() => setModal({ type: 'recipe', food: f })}><Pencil /></button>}<button className="archive-button" aria-label={`Архивировать ${f.name}`} onClick={() => archive(f)}><Archive /></button></div></article>)}</div> : <div className="page-empty products-empty"><PackageOpen aria-hidden="true" /><h2>{activeFoods.length === 0 ? 'База продуктов пуста' : 'Ничего не нашли'}</h2><p>{activeFoods.length === 0 ? 'Создайте первый продукт или блюдо.' : 'Измените запрос или сбросьте фильтры.'}</p>{filtersActive && <button className="secondary" onClick={() => { setQuery(''); setCategory('Все'); setFavorites(false) }}>Сбросить фильтры</button>}</div>}
+    {modal?.type === 'recipe' ? <RecipeModal foods={data.foods} initial={modal.food || null} initialIngredients={data.recipeIngredients.filter(item => item.recipeFoodItemId === modal.food?.id)} currentUser={viewer} onClose={() => setModal(null)} onSave={saveRecipe} /> : modal && <ProductModal type={modal.type} currentUser={viewer} onClose={() => setModal(null)} onSave={save} />}
   </>
 }
 
@@ -428,7 +517,7 @@ export default function App() {
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
-    {page === 'products' && viewer.role === 'admin' && <ProductsPage data={data} update={update} notify={notify} />}
+    {page === 'products' && viewer.role === 'admin' && <ProductsPage viewer={viewer} data={data} update={update} notify={notify} />}
     {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} />}
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>
 }

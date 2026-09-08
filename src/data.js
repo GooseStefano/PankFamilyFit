@@ -124,6 +124,18 @@ export function filterWeightPeriod(entries, period, referenceDate = todayISO()) 
   return sorted.filter(entry => entry.date >= start)
 }
 
+export function calculateRecipe(ingredients, cookedWeight) {
+  const totals = ingredients.reduce((result, ingredient) => ({
+    calories: result.calories + Number(ingredient.caloriesSnapshot ?? ingredient.calories ?? 0),
+    protein: result.protein + Number(ingredient.proteinSnapshot ?? ingredient.protein ?? 0),
+    fat: result.fat + Number(ingredient.fatSnapshot ?? ingredient.fat ?? 0),
+    carbs: result.carbs + Number(ingredient.carbsSnapshot ?? ingredient.carbs ?? 0),
+  }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
+  const weight = Number(cookedWeight)
+  const per100 = Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, weight > 0 ? value / weight * 100 : 0]))
+  return { totals, per100 }
+}
+
 export function calculate(food, amount, unit) {
   const measure = food.measures?.find(m => m.unit === unit)
   const baseQuantity = unit === food.baseUnit ? amount : amount * (measure?.amountInBase || food.baseAmount)
