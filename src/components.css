@@ -1,0 +1,38 @@
+.measure-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.measure-head > div { display: flex; flex-direction: column; gap: 3px; }
+.measure-head span { color: var(--muted); font-size: 10px; }
+.small-add {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+}
+.small-add svg { width: 16px; }
+.measure-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 44px;
+  gap: 8px;
+  align-items: end;
+}
+.measure-row > button {
+  width: 44px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+.measure-row > button svg { width: 17px; }
+button { touch-action: manipulation; }
