@@ -125,20 +125,32 @@ export function filterWeightPeriod(entries, period, referenceDate = todayISO()) 
 }
 
 export function calculateRecipe(ingredients, cookedWeight) {
+  const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0
   const totals = ingredients.reduce((result, ingredient) => ({
-    calories: result.calories + Number(ingredient.caloriesSnapshot ?? ingredient.calories ?? 0),
-    protein: result.protein + Number(ingredient.proteinSnapshot ?? ingredient.protein ?? 0),
-    fat: result.fat + Number(ingredient.fatSnapshot ?? ingredient.fat ?? 0),
-    carbs: result.carbs + Number(ingredient.carbsSnapshot ?? ingredient.carbs ?? 0),
+    calories: result.calories + finite(ingredient.caloriesSnapshot ?? ingredient.calories),
+    protein: result.protein + finite(ingredient.proteinSnapshot ?? ingredient.protein),
+    fat: result.fat + finite(ingredient.fatSnapshot ?? ingredient.fat),
+    carbs: result.carbs + finite(ingredient.carbsSnapshot ?? ingredient.carbs),
   }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
-  const weight = Number(cookedWeight)
+  const weight = finite(cookedWeight)
   const per100 = Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, weight > 0 ? value / weight * 100 : 0]))
   return { totals, per100 }
 }
 
+export function amountInBase(food, amount, unit) {
+  const value = Number(amount)
+  const baseAmount = Number(food?.baseAmount)
+  if (!food || !Number.isFinite(value) || value <= 0 || !Number.isFinite(baseAmount) || baseAmount <= 0) return 0
+  if (unit === food.baseUnit) return value
+  const measure = food.measures?.find(item => item.unit === unit)
+  const multiplier = Number(measure?.amountInBase)
+  return Number.isFinite(multiplier) && multiplier > 0 ? value * multiplier : 0
+}
+
 export function calculate(food, amount, unit) {
-  const measure = food.measures?.find(m => m.unit === unit)
-  const baseQuantity = unit === food.baseUnit ? amount : amount * (measure?.amountInBase || food.baseAmount)
-  const factor = baseQuantity / food.baseAmount
-  return { calories: food.calories * factor, protein: food.protein * factor, fat: food.fat * factor, carbs: food.carbs * factor }
+  const baseQuantity = amountInBase(food, amount, unit)
+  const baseAmount = Number(food?.baseAmount)
+  const factor = baseAmount > 0 ? baseQuantity / baseAmount : 0
+  const nutrient = value => Number.isFinite(Number(value) * factor) ? Number(value) * factor : 0
+  return { calories: nutrient(food?.calories), protein: nutrient(food?.protein), fat: nutrient(food?.fat), carbs: nutrient(food?.carbs) }
 }
