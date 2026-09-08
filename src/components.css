@@ -7,7 +7,7 @@
 .measure-head > div { display: flex; flex-direction: column; gap: 3px; }
 .measure-head span { color: var(--muted); font-size: 10px; }
 .small-add {
-  min-height: 44px;
+  min-height: 48px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface2);
@@ -20,12 +20,12 @@
 .small-add svg { width: 16px; }
 .measure-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 44px;
+  grid-template-columns: 1fr 1fr 48px;
   gap: 8px;
   align-items: end;
 }
 .measure-row > button {
-  width: 44px;
+  width: 48px;
   height: 48px;
   border: 1px solid var(--border);
   border-radius: 12px;
