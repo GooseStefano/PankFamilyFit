@@ -309,8 +309,20 @@ button { touch-action: manipulation; }
   .recipe-portions { grid-template-columns: 1fr; }
 }
 
+/* Global app layout v0.6.1 */
+:root { --bottom-nav-height: 80px; }
+.app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
+.scroll-area { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px); scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px); }
+.bottom-nav { height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom)); }
+.settings-card,.settings-card form,.settings-card .nutrient-inputs,.settings-card .nutrient-inputs label { min-width: 0; }
+.settings-card .nutrient-inputs input { width: 100%; min-width: 0; }
+
+@media (min-width: 700px) {
+  .app-shell { height: calc(100dvh - 64px); }
+  .scroll-area { height: 100%; max-height: none; }
+}
+
 /* Workout diary v0.5.1 */
-.workout-scroll-area { padding-bottom: calc(168px + env(safe-area-inset-bottom)); scroll-padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
 .workout-page-head { margin-bottom: 18px; }
 .workout-date-row { margin-bottom: 14px; }
 .workouts-empty { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 14px; border: 1px dashed #66783c; border-radius: 16px; background: var(--accent-dark); }
@@ -397,8 +409,55 @@ button { touch-action: manipulation; }
 
 @media (orientation: landscape) and (max-height: 520px) {
   .desktop-bg { padding: 0; }
-  .app-shell { min-height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .app-shell { height: 100dvh; min-height: 0; max-height: 100dvh; border-radius: 0; }
   .scroll-area { height: 100dvh; max-height: 100dvh; }
   .workout-page-head { margin-bottom: 12px; }
   .sheet.workout-sheet { max-height: calc(100dvh - 12px); }
+}
+
+/* Daily messages v0.6.0 */
+.daily-message-card,.tomorrow-message-card { min-width: 0; margin-bottom: 14px; padding: 15px 16px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); overflow-wrap: anywhere; }
+.daily-message-card.has-message { border-color: #66783c; background: linear-gradient(135deg,var(--accent-dark),var(--surface) 72%); }
+.daily-message-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.daily-message-heading > div { min-width: 0; }
+.daily-message-heading h2 { font-size: 16px; line-height: 1.3; }
+.daily-message-heading > svg { width: 20px; flex: none; color: var(--accent); }
+.daily-message-card blockquote { margin: 12px 0 0; color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.daily-message-empty { margin-top: 10px; color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.daily-message-empty svg { width: 17px; flex: none; color: var(--accent); }
+.tomorrow-message-card textarea,.phrase-sheet textarea { width: 100%; min-height: 76px; resize: vertical; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tomorrow-message-card form { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+.tomorrow-empty { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.message-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.message-form-footer > span { color: var(--muted); font-size: 10px; }
+.message-form-footer button { min-width: 118px; }
+.phrase-settings { overflow-wrap: anywhere; }
+.phrase-settings-intro { margin: 10px 0 14px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.phrase-list-empty { margin-top: 14px; padding: 24px 14px; border: 1px dashed var(--border); border-radius: 15px; color: var(--muted); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.phrase-list-empty svg { width: 28px; color: var(--accent); }
+.phrase-list-empty strong { margin: 9px 0 4px; color: var(--text); font-size: 13px; }
+.phrase-list-empty span { font-size: 11px; }
+.phrase-groups { margin-top: 18px; display: flex; flex-direction: column; gap: 18px; }
+.phrase-group-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.phrase-group-title strong { font-size: 12px; }
+.phrase-group-title span { min-width: 28px; padding: 4px 7px; border-radius: 9px; background: var(--accent-dark); color: var(--accent); font-size: 10px; text-align: center; }
+.phrase-list { display: flex; flex-direction: column; gap: 8px; }
+.phrase-row { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface2); }
+.phrase-list.archived .phrase-row { opacity: .76; }
+.phrase-row > p { margin: 0 0 10px; font-size: 12px; font-weight: 600; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.phrase-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.phrase-meta > span { min-width: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.phrase-meta > div { display: flex; flex: none; gap: 8px; }
+.phrase-meta button { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: #2a2a2a; color: var(--muted); display: grid; place-items: center; }
+.phrase-meta button:last-child { color: var(--accent); }
+.phrase-meta svg { width: 17px; }
+.phrase-group-empty { margin: 0; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 10px; text-align: center; }
+.phrase-sheet form { gap: 12px; }
+
+@media (max-width: 374px) {
+  .daily-message-card,.tomorrow-message-card { padding: 14px; }
+  .message-form-footer { align-items: flex-end; }
+  .message-form-footer button { min-width: 108px; padding: 0 12px; }
+  .phrase-meta { align-items: flex-start; flex-direction: column; }
+  .phrase-meta > div { align-self: flex-end; }
 }

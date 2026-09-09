@@ -5,6 +5,7 @@ const KEY = 'pank-family-fit-v01'
 const empty = {
   foods: INITIAL_FOODS, goals: INITIAL_GOALS, entries: [], notes: {}, weightEntries: INITIAL_WEIGHT_ENTRIES, recipeIngredients: [],
   workoutSessions: [], exerciseLibrary: [], workoutExercises: [], workoutSets: [],
+  messagePhrases: [], dailyPhraseShows: [], directMessages: [],
 }
 const read = () => { try { return { ...empty, ...JSON.parse(localStorage.getItem(KEY)) } } catch { return empty } }
 

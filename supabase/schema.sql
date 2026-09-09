@@ -14,6 +14,9 @@ create table exercise_library (id uuid primary key default gen_random_uuid(), na
 create unique index exercise_library_active_name_idx on exercise_library(lower(name)) where is_archived = false;
 create table workout_exercises (id uuid primary key default gen_random_uuid(), workout_session_id uuid not null references workout_sessions(id) on delete cascade, exercise_library_id uuid references exercise_library(id), name_snapshot text not null, planned_sets integer not null check(planned_sets between 1 and 20), rep_min integer not null check(rep_min > 0), rep_max integer not null check(rep_max >= rep_min), planned_weight numeric check(planned_weight >= 0), plan_comment text not null default '', order_index integer not null default 0, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create table workout_sets (id uuid primary key default gen_random_uuid(), workout_exercise_id uuid not null references workout_exercises(id) on delete cascade, set_number integer not null check(set_number > 0), weight numeric check(weight >= 0), reps integer check(reps >= 0), difficulty integer check(difficulty between 1 and 10), comment text not null default '', created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(workout_exercise_id,set_number));
+create table message_phrases (id uuid primary key default gen_random_uuid(), text text not null check(length(trim(text)) > 0), created_by uuid not null references app_users(id), target_user_id uuid not null references app_users(id), is_active boolean not null default true, shown_count integer not null default 0 check(shown_count >= 0), last_shown_date date, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create table daily_phrase_shows (id uuid primary key default gen_random_uuid(), phrase_id uuid not null references message_phrases(id), target_user_id uuid not null references app_users(id), date date not null, created_at timestamptz not null default now(), unique(target_user_id,date));
+create table direct_messages (id uuid primary key default gen_random_uuid(), from_user_id uuid not null references app_users(id), to_user_id uuid not null references app_users(id), show_date date not null, text text not null check(length(trim(text)) > 0), created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(from_user_id,to_user_id,show_date));
 create index meal_entries_user_date_idx on meal_entries(user_id,date);
 create index nutrition_goals_user_date_idx on nutrition_goals(user_id,start_date desc);
 create index weight_entries_user_date_idx on weight_entries(user_id,date desc);
@@ -21,6 +24,9 @@ create index recipe_ingredients_recipe_idx on recipe_ingredients(recipe_food_ite
 create index workout_sessions_lookup_idx on workout_sessions(user_id,week_type,muscle_group,date desc);
 create index workout_exercises_session_idx on workout_exercises(workout_session_id,order_index);
 create index workout_sets_exercise_idx on workout_sets(workout_exercise_id,set_number);
+create index message_phrases_target_active_idx on message_phrases(target_user_id,is_active,shown_count,created_at);
+create index daily_phrase_shows_target_date_idx on daily_phrase_shows(target_user_id,date desc);
+create index direct_messages_recipient_date_idx on direct_messages(to_user_id,show_date desc);
 
 insert into app_users (id,name,role) values ('00000000-0000-0000-0000-000000000001','Даня','admin'),('00000000-0000-0000-0000-000000000002','Вика','member');
 insert into pin_access (user_id,pin_hash,role) values ('00000000-0000-0000-0000-000000000001','e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c','admin'),('00000000-0000-0000-0000-000000000002','db49d04d733d3da455dff99d7f3e07b766043ef16056f24768bf719fa6f8c394','member');
@@ -39,6 +45,9 @@ alter table workout_sessions enable row level security;
 alter table exercise_library enable row level security;
 alter table workout_exercises enable row level security;
 alter table workout_sets enable row level security;
+alter table message_phrases enable row level security;
+alter table daily_phrase_shows enable row level security;
+alter table direct_messages enable row level security;
 
 -- В production прямой доступ anon должен оставаться закрытым.
 -- PIN-проверку и CRUD выполняйте через Edge Function, которая выдаёт короткоживущий JWT
