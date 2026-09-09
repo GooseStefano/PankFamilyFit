@@ -70,7 +70,7 @@ function ExerciseModal({ initial, library, muscleGroup, onClose, onSave }) {
   </div>
 }
 
-function WorkoutExerciseCard({ exercise, sets, updateSet, saveSets, onEdit, onDelete }) {
+function WorkoutExerciseCard({ exercise, sets, updateSet, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   return <article className="workout-exercise-card">
     <div className="exercise-card-head"><div><h2>{exercise.name}</h2><p>Цель: {exercise.plannedSets} × {exercise.repMin}–{exercise.repMax} · {displayValue(exercise.plannedWeight)} кг</p>{exercise.planComment && <small>{exercise.planComment}</small>}</div><div className="exercise-card-actions"><button aria-label={`Изменить ${exercise.name}`} onClick={onEdit}><Pencil /></button><button aria-label={`Удалить ${exercise.name}`} onClick={onDelete}><Trash2 /></button></div></div>
@@ -78,9 +78,10 @@ function WorkoutExerciseCard({ exercise, sets, updateSet, saveSets, onEdit, onDe
     {expanded && <div className="workout-sets">
       {sets.map(set => <fieldset className="workout-set" key={set.id}><legend>Подход {set.setNumber}</legend>
         <div className="set-fields"><label>Вес, кг<input type="number" inputMode="decimal" min="0" step="0.5" value={set.weight} onChange={event => updateSet(set.id, 'weight', event.target.value)} /></label><label>Повторы<input type="number" inputMode="numeric" min="0" value={set.reps} onChange={event => updateSet(set.id, 'reps', event.target.value)} /></label><label>Тяжесть<input type="number" inputMode="numeric" min="1" max="10" value={set.difficulty} onChange={event => updateSet(set.id, 'difficulty', event.target.value)} placeholder="1–10" /></label></div>
+        <div className="difficulty-quick" role="group" aria-label={`Быстрый выбор тяжести для подхода ${set.setNumber}`}>{[6, 7, 8, 9, 10].map(value => <button type="button" key={value} className={Number(set.difficulty) === value ? 'active' : ''} aria-pressed={Number(set.difficulty) === value} onClick={() => updateSet(set.id, 'difficulty', String(value))}>{value}</button>)}</div>
         <label>Комментарий<textarea value={set.comment} onChange={event => updateSet(set.id, 'comment', event.target.value)} placeholder="Опционально" /></label>
       </fieldset>)}
-      <button className="secondary wide" onClick={saveSets}>Сохранить подходы</button>
+      <p className="sets-autosave" role="status">Изменения в подходах сохраняются автоматически.</p>
     </div>}
   </article>
 }
@@ -88,19 +89,21 @@ function WorkoutExerciseCard({ exercise, sets, updateSet, saveSets, onEdit, onDe
 function PastWorkout({ session, exercises, sets, canCopy, onCopy }) {
   return <section className="past-workout" aria-labelledby="past-workout-title">
     <div className="workout-section-head"><div><span className="section-label">ПОДСКАЗКА</span><h2 id="past-workout-title">Прошлый раз</h2></div><History aria-hidden="true" /></div>
-    {!session ? <div className="past-empty">Нет прошлой тренировки с таким типом недели и группой мышц.</div> : <><p className="past-date">{russianDate(session.date)}</p><div className="past-exercises">{exercises.map(exercise => {
+    {!session ? <div className="past-empty"><strong>Прошлой тренировки нет</strong><span>Для выбранных недели и группы мышц пока нет сохранённой тренировки.</span></div> : <><p className="past-date"><span>Прошлая тренировка</span><strong>{russianDate(session.date)}</strong></p>{exercises.length ? <div className="past-exercises">{exercises.map(exercise => {
       const rows = sets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)
-      return <div key={exercise.id}><strong>{exercise.name} — {displayValue(exercise.plannedWeight)} кг</strong><span>Повторы: {rows.map(item => displayValue(item.reps)).join(' / ')}</span><span>Тяжесть: {rows.map(item => displayValue(item.difficulty)).join(' / ')}</span></div>
-    })}</div>{canCopy && <button className="secondary wide copy-previous" onClick={onCopy}><Copy aria-hidden="true" />Создать на основе прошлой</button>}</>}
+      const fact = rows.map(item => item.weight === '' && item.reps === '' ? '—' : `${displayValue(item.weight)} кг × ${displayValue(item.reps)}`).join(' · ')
+      return <div key={exercise.id}><strong>{exercise.name}</strong><span>План: {exercise.plannedSets} × {exercise.repMin}–{exercise.repMax} · {displayValue(exercise.plannedWeight)} кг</span><span className="past-fact">Факт: {fact}</span><span>Тяжесть: {rows.map(item => displayValue(item.difficulty)).join(' / ')}</span></div>
+    })}</div> : <div className="past-empty"><strong>В прошлой тренировке нет упражнений</strong><span>Переносить пока нечего.</span></div>}{canCopy && <button className="secondary wide copy-previous" onClick={onCopy}><Copy aria-hidden="true" />Перенести прошлый план</button>}</>}
   </section>
 }
 
 function workoutReport(session, exercises, sets) {
   const lines = [
     'Тренировка: Даня', `Дата: ${russianDate(session.date)}`, `Тип: ${WEEK_TYPES[session.weekType]}`,
-    `Группа: ${MUSCLE_GROUPS[session.muscleGroup]}`, `Самочувствие: ${session.wellbeingScore ? `${session.wellbeingScore}/10` : 'не указано'}`,
-    `Комментарий: ${session.note || '—'}`,
+    `Группа: ${MUSCLE_GROUPS[session.muscleGroup]}`,
   ]
+  if (session.wellbeingScore) lines.push(`Самочувствие: ${session.wellbeingScore}/10`)
+  if (session.note) lines.push(`Комментарий: ${session.note}`)
   exercises.forEach(exercise => {
     lines.push('', exercise.name, `Цель: ${exercise.plannedSets} × ${exercise.repMin}–${exercise.repMax} · ${displayValue(exercise.plannedWeight)} кг`, 'Факт:', '')
     sets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber).forEach(item => {
@@ -179,6 +182,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
   }
   const copyPrevious = () => {
     if (!previousSession || !previousExercises.length || exercises.length) return
+    if (!window.confirm(`Перенести план тренировки за ${russianDate(previousSession.date)}? Прошлые результаты останутся только подсказкой.`)) return
     update(current => {
       const { session, created } = ensureSession(current); const now = stamp(); const copiedExercises = []; const copiedSets = []
       previousExercises.forEach((source, index) => {
@@ -187,7 +191,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
       })
       return { ...current, workoutSessions: created ? [...current.workoutSessions, session] : current.workoutSessions.map(item => item.id === session.id ? session : item), workoutExercises: [...current.workoutExercises, ...copiedExercises], workoutSets: [...current.workoutSets, ...copiedSets] }
     })
-    notify('Тренировка сохранена')
+    notify('Прошлый план перенесён')
   }
   const copyReport = async () => {
     if (!currentSession) return
@@ -207,7 +211,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
     </section>
     <PastWorkout session={previousSession} exercises={previousExercises} sets={data.workoutSets} canCopy={!exercises.length && previousExercises.length > 0} onCopy={copyPrevious} />
     <div className="workout-list-head"><div><span className="section-label">ПЛАН И ФАКТ</span><h2>Упражнения</h2></div><span>{exercises.length}</span></div>
-    {exercises.length ? <div className="workout-exercise-list">{exercises.map(exercise => <WorkoutExerciseCard key={exercise.id} exercise={exercise} sets={data.workoutSets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)} updateSet={updateSet} saveSets={() => notify('Тренировка сохранена')} onEdit={() => setModal({ exercise })} onDelete={() => removeExercise(exercise)} />)}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавьте упражнение вручную или перенесите прошлый план.</span></div>}
+    {exercises.length ? <div className="workout-exercise-list">{exercises.map(exercise => <WorkoutExerciseCard key={exercise.id} exercise={exercise} sets={data.workoutSets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)} updateSet={updateSet} onEdit={() => setModal({ exercise })} onDelete={() => removeExercise(exercise)} />)}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавьте упражнение вручную или перенесите прошлый план.</span></div>}
     <div className="workout-primary-actions"><button className="primary" onClick={() => setModal({})}><Plus aria-hidden="true" />Упражнение</button><button className="secondary" disabled={!currentSession} onClick={copyReport}><Copy aria-hidden="true" />Скопировать отчёт</button></div>
     {modal && <ExerciseModal initial={modal.exercise || null} library={data.exerciseLibrary} muscleGroup={muscleGroup} onClose={() => setModal(null)} onSave={saveExercise} />}
   </>

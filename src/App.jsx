@@ -540,7 +540,7 @@ export default function App() {
   if (!viewer) return <Login onLogin={user => { setViewer(user); setProfile(user) }} />
   const gotoDate = value => { setDate(value); setPage('today') }
   const logout = () => { localStorage.removeItem('pff-session'); setPage('today'); setDate(todayISO()); setViewer(null) }
-  return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
+  return <div className="desktop-bg"><main className="app-shell"><div className={`scroll-area ${page === 'workouts' ? 'workout-scroll-area' : ''}`}>
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
