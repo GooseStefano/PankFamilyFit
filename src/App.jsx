@@ -3,10 +3,11 @@ import {
   Apple, Archive, CalendarDays, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, CircleUserRound,
   Clock3, CookingPot, Copy, FileQuestion, Flame, History, LogOut, MessageSquareText, PackageOpen,
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
-  Scale,
+  Scale, Dumbbell,
 } from 'lucide-react'
 import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
+import WorkoutPage from './WorkoutPage'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
 const sum = rows => rows.reduce((a, e) => ({
@@ -526,7 +527,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify }) {
 function PageHead({ eyebrow, title, subtitle }) { return <header className="page-head"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></header> }
 
 function BottomNav({ viewer, page, setPage }) {
-  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'История'], ['weight', Scale, 'Вес'], ...(viewer.role === 'admin' ? [['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
+  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'История'], ['weight', Scale, 'Вес'], ...(viewer.id === 'danya' ? [['workouts', Dumbbell, 'Тренировки'], ['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
   return <nav className="bottom-nav" aria-label="Основная навигация">{links.map(([key, Icon, label]) => <button key={key} className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => setPage(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
 }
 
@@ -543,6 +544,7 @@ export default function App() {
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
+    {page === 'workouts' && viewer.id === 'danya' && <WorkoutPage viewer={viewer} data={data} update={update} notify={notify} />}
     {page === 'products' && viewer.role === 'admin' && <ProductsPage viewer={viewer} data={data} update={update} notify={notify} />}
     {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} />}
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>
