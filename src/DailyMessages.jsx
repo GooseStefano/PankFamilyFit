@@ -21,7 +21,7 @@ function MessageCard({ title, text, emptyText, eyebrow }) {
   </section>
 }
 
-function TomorrowMessageForm({ data, update, notify }) {
+function TomorrowMessageForm({ data, update, notify, inSettings = false }) {
   const tomorrow = shiftDate(todayISO(), 1)
   const existing = data.directMessages.find(message => message.fromUserId === VIKA_ID && message.toUserId === DANYA_ID && message.showDate === tomorrow) || null
   const [draft, setDraft] = useState(existing?.text || '')
@@ -35,13 +35,15 @@ function TomorrowMessageForm({ data, update, notify }) {
     update(current => ({ ...current, directMessages: existing ? current.directMessages.map(item => item.id === existing.id ? message : item) : [...current.directMessages, message] }))
     notify(existing ? 'Послание обновлено' : 'Послание на завтра сохранено')
   }
-  return <section className="tomorrow-message-card" aria-labelledby="tomorrow-message-title">
-    <div className="daily-message-heading"><div><span className="section-label">НА {formatShortDate(tomorrow).toUpperCase()}</span><h2 id="tomorrow-message-title">Написать Дане на завтра</h2></div><Send aria-hidden="true" /></div>
-    {!existing && !draft && <p className="tomorrow-empty">Вы ещё не написали послание на завтра.</p>}
+  return <section className={inSettings ? 'settings-card tomorrow-message-card tomorrow-message-settings' : 'tomorrow-message-card'} aria-labelledby="tomorrow-message-title">
+    <div className="daily-message-heading"><div><span className="section-label">{inSettings ? 'ПОСЛАНИЕ' : `НА ${formatShortDate(tomorrow).toUpperCase()}`}</span><h2 id="tomorrow-message-title">{inSettings ? 'Послание Дане' : 'Написать Дане на завтра'}</h2></div><Send aria-hidden="true" /></div>
+    {!existing && !draft ? <p className="tomorrow-empty">Вы ещё не написали послание на завтра.</p> : existing && inSettings ? <p className="tomorrow-empty">На {formatShortDate(tomorrow)} послание сохранено. Его можно изменить.</p> : null}
     <form onSubmit={submit}><label htmlFor="tomorrow-message">Короткое послание<textarea id="tomorrow-message" maxLength={MAX_MESSAGE_LENGTH} value={draft} onChange={event => setDraft(event.target.value)} placeholder="Что Даня прочитает завтра?" /></label>
-      <div className="message-form-footer"><span>{draft.length}/{MAX_MESSAGE_LENGTH}</span><button className="secondary" disabled={!clean || unchanged}>{existing ? 'Обновить' : 'Сохранить'}</button></div></form>
+      <div className="message-form-footer"><span>{draft.length}/{MAX_MESSAGE_LENGTH}</span><button className="secondary" disabled={!clean || unchanged}>Сохранить</button></div></form>
   </section>
 }
+
+export function TomorrowMessageSettings({ data, update, notify }) { return <TomorrowMessageForm data={data} update={update} notify={notify} inSettings /> }
 
 export function DailyMessages({ viewer, date, data, update, notify }) {
   const show = data.dailyPhraseShows.find(item => item.targetUserId === VIKA_ID && item.date === date) || null
@@ -66,10 +68,7 @@ export function DailyMessages({ viewer, date, data, update, notify }) {
     const message = data.directMessages.find(item => item.fromUserId === VIKA_ID && item.toUserId === DANYA_ID && item.showDate === date)
     return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Вики" text={message?.text} emptyText="Сегодня послания нет" />
   }
-  return <>
-    <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока нет посланий" />
-    <TomorrowMessageForm data={data} update={update} notify={notify} />
-  </>
+  return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока нет посланий" />
 }
 
 function PhraseModal({ initial, onClose, onSave }) {

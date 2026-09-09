@@ -8,7 +8,7 @@ import {
 import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 import WorkoutPage from './WorkoutPage'
-import { DailyMessages, PhraseSettings } from './DailyMessages'
+import { DailyMessages, PhraseSettings, TomorrowMessageSettings } from './DailyMessages'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
 const sum = rows => rows.reduce((a, e) => ({
@@ -295,8 +295,10 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
   }
   return <>
     <div className="topbar"><div><p className="eyebrow">PANK FAMILY FIT</p>{viewer.role === 'admin' ? <div className="profile-switch">{USERS.map(u => <button key={u.id} className={profile.id === u.id ? 'active' : ''} onClick={() => setProfile(u)}>{u.name}</button>)}</div> : <h1>Привет, {viewer.name}</h1>}</div><div className="avatar">{profile.name[0]}</div></div>
-    <DayPicker date={date} setDate={setDate} /><MacroCard total={total} goal={goal} />
-    <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />
+    <DayPicker date={date} setDate={setDate} />
+    {viewer.id === 'vika' && <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />}
+    <MacroCard total={total} goal={goal} />
+    {viewer.id === 'danya' && <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />}
     {date !== todayISO() && dayIsEmpty && <div className="day-empty"><FileQuestion aria-hidden="true" /><div><strong>На {prettyDate(date)} нет истории</strong><span>Добавьте еду или комментарий, чтобы создать запись дня.</span></div></div>}
     <section className="meal-section"><div className="meal-tabs" role="tablist">{Object.entries(MEALS).map(([k, v]) => <button role="tab" aria-selected={meal === k} className={meal === k ? 'active' : ''} key={k} onClick={() => setMeal(k)}>{v}</button>)}</div>
       <div className="meal-list">{mealEntries.length === 0 ? <div className="empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>В {MEALS[meal].toLowerCase()} пока нет еды</strong><span>Добавьте первую запись.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
@@ -523,6 +525,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify }) {
   }
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <section className="settings-card"><div className="card-title"><div><span className="section-label">ЦЕЛИ КБЖУ</span><h2>Новая цель</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(u => <button key={u.id} className={profileId === u.id ? 'active' : ''} onClick={() => select(u.id)}>{u.name}</button>)}</div><form onSubmit={save}><label>Применить с даты<input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки'], ['fat', 'Жиры'], ['carbs', 'Углеводы']].map(([k, l]) => <label key={k}>{l}<input type="number" min="0" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>)}</div><button className="primary wide">Сохранить новую цель</button></form><p className="form-hint">Старые дни сохранят прежние цели.</p></section>}
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
+    {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}
     <section className="settings-card"><div className="card-title"><div><span className="section-label">УСТРОЙСТВО</span><h2>Сеанс</h2></div><CircleUserRound aria-hidden="true" /></div><button className="danger wide" onClick={onLogout}><LogOut aria-hidden="true" />Выйти на этом устройстве</button></section>
   </>
 }
