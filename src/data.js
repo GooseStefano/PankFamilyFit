@@ -1,6 +1,6 @@
 export const USERS = [
-  { id: 'danya', name: 'Даня', role: 'admin', pinHash: 'e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c' },
-  { id: 'vika', name: 'Вика', role: 'member', pinHash: 'db49d04d733d3da455dff99d7f3e07b766043ef16056f24768bf719fa6f8c394' },
+  { id: 'danya', name: 'Даня', role: 'admin' },
+  { id: 'vika', name: 'Вика', role: 'member' },
 ]
 
 export const CATEGORIES = ['Все', 'Мясо', 'Рыба', 'Яйца', 'Молочка', 'Крупы', 'Макароны/хлеб', 'Овощи', 'Фрукты', 'Сладкое', 'Соусы', 'Масла', 'Напитки', 'Готовое', 'Другое']

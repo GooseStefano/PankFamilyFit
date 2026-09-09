@@ -52,3 +52,39 @@ alter table direct_messages enable row level security;
 -- В production прямой доступ anon должен оставаться закрытым.
 -- PIN-проверку и CRUD выполняйте через Edge Function, которая выдаёт короткоживущий JWT
 -- с user_id/role; затем добавьте RLS-политики по этим claims.
+
+-- v0.7.0: короткоживущий JWT из Edge Function pin-login содержит app_user_id и app_role.
+create or replace function pff_user_id() returns uuid language sql stable as $$ select nullif(auth.jwt() ->> 'app_user_id', '')::uuid $$;
+create or replace function pff_is_admin() returns boolean language sql stable as $$ select coalesce(auth.jwt() ->> 'app_role' = 'admin', false) $$;
+create or replace function set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+create or replace function pff_apply_updated_at() returns void language plpgsql as $$
+declare table_name text;
+begin
+  foreach table_name in array array['food_items','meal_entries','daily_notes','weight_entries','workout_sessions','exercise_library','workout_exercises','workout_sets','message_phrases','direct_messages'] loop
+    execute format('drop trigger if exists %I on %I', table_name || '_updated_at', table_name);
+    execute format('create trigger %I before update on %I for each row execute function set_updated_at()', table_name || '_updated_at', table_name);
+  end loop;
+end $$;
+select pff_apply_updated_at();
+
+-- All direct data access is scoped to the signed PIN session. The service role used by
+-- pin-login bypasses RLS and is never exposed to the browser.
+create policy "users read" on app_users for select using (id = pff_user_id() or pff_is_admin());
+create policy "goals by user" on nutrition_goals for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
+create policy "food read" on food_items for select using (true);
+create policy "food admin write" on food_items for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "measures read" on food_measures for select using (true);
+create policy "measures admin write" on food_measures for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "ingredients read" on recipe_ingredients for select using (true);
+create policy "ingredients admin write" on recipe_ingredients for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "entries by user" on meal_entries for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
+create policy "notes by user" on daily_notes for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
+create policy "weight by user" on weight_entries for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
+create policy "workouts admin only" on workout_sessions for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "library admin only" on exercise_library for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "workout exercises admin only" on workout_exercises for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "workout sets admin only" on workout_sets for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "phrases read recipient or admin" on message_phrases for select using (target_user_id = pff_user_id() or pff_is_admin());
+create policy "phrases admin write" on message_phrases for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "phrase shows recipient or admin" on daily_phrase_shows for all using (target_user_id = pff_user_id() or pff_is_admin()) with check (target_user_id = pff_user_id() or pff_is_admin());
+create policy "direct messages participants" on direct_messages for all using (from_user_id = pff_user_id() or to_user_id = pff_user_id() or pff_is_admin()) with check (from_user_id = pff_user_id() or pff_is_admin());

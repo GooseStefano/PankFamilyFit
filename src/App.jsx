@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
+import { storage } from './services/storage'
 import WorkoutPage from './WorkoutPage'
 import { DailyMessages, PhraseSettings, TomorrowMessageSettings } from './DailyMessages'
 
@@ -15,11 +16,6 @@ const sum = rows => rows.reduce((a, e) => ({
   calories: a.calories + Number(e.calories || 0), protein: a.protein + Number(e.protein || 0),
   fat: a.fat + Number(e.fat || 0), carbs: a.carbs + Number(e.carbs || 0),
 }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
-
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
 function Toast({ message }) {
   return <div className={`toast ${message ? 'show' : ''}`} role="status" aria-live="polite">
@@ -32,11 +28,12 @@ function Login({ onLogin }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const submit = async e => {
-    e.preventDefault(); setBusy(true)
-    const hash = await sha256(pin); const user = USERS.find(u => u.pinHash === hash)
-    setBusy(false)
-    if (!user) { setError('Неверный PIN. Попробуйте ещё раз.'); setPin(''); return }
-    localStorage.setItem('pff-session', user.id); onLogin(user)
+    e.preventDefault(); setBusy(true); setError('')
+    try {
+      const session = await storage.login(pin)
+      onLogin(USERS.find(user => user.id === session.id) || { id: session.id, name: session.name, role: session.role })
+    } catch (reason) { setError(reason.message || 'Не удалось выполнить вход.'); setPin('') }
+    finally { setBusy(false) }
   }
   return <main className="login-shell"><section className="login-card">
     <div className="brand-mark"><Apple size={28} aria-hidden="true" /></div>
@@ -50,7 +47,7 @@ function Login({ onLogin }) {
       <div id="pin-error" className="field-error" role="alert">{error}</div>
       <button className="primary wide" disabled={pin.length !== 5 || busy}>{busy ? 'Проверяем…' : 'Войти'}</button>
     </form>
-    <p className="privacy">PIN проверяется только в защищённом виде. Устройство запомнит вход.</p>
+    <p className="privacy">{storage.mode === 'supabase' ? 'PIN проверяется защищённой функцией Supabase и не сохраняется на устройстве.' : 'Локальный режим: данные остаются на этом устройстве.'}</p>
   </section></main>
 }
 
@@ -538,15 +535,22 @@ function BottomNav({ viewer, page, setPage }) {
 }
 
 export default function App() {
-  const [viewer, setViewer] = useState(() => USERS.find(u => u.id === localStorage.getItem('pff-session')) || null)
+  const [viewer, setViewer] = useState(() => {
+    const session = storage.session?.()
+    return session ? (USERS.find(user => user.id === session.id) || { id: session.id, name: session.name, role: session.role }) : null
+  })
   const [profile, setProfile] = useState(viewer || USERS[0]); const [page, setPage] = useState('today'); const [date, setDate] = useState(todayISO())
-  const [toast, setToast] = useState(''); const toastTimer = useRef(null); const { data, update } = useStore()
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
+  const [toast, setToast] = useState(''); const toastTimer = useRef(null)
   const notify = message => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(''), 2600) }
-  if (!viewer) return <Login onLogin={user => { setViewer(user); setProfile(user) }} />
+  const { data, update, loading, error: storageError, mode, status, reload } = useStore({ onError: notify })
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
+  if (!viewer) return <Login onLogin={user => { setViewer(user); setProfile(user); reload() }} />
   const gotoDate = value => { setDate(value); setPage('today') }
-  const logout = () => { localStorage.removeItem('pff-session'); setPage('today'); setDate(todayISO()); setViewer(null) }
+  const logout = () => { storage.logout(); setPage('today'); setDate(todayISO()); setViewer(null) }
+  if (loading) return <main className="loading-shell" role="status" aria-live="polite"><div className="brand-mark"><Apple aria-hidden="true" /></div><strong>Загружаем семейный дневник…</strong><span>Проверяем синхронизацию данных.</span></main>
   return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
+    <div className={`storage-status ${mode}`} role="status">{status}</div>
+    {storageError && <section className="sync-error" role="alert"><strong>Не удалось подключиться к Supabase</strong><span>{storageError}</span><button className="secondary" onClick={reload}>Повторить</button></section>}
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
