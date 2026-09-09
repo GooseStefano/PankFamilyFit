@@ -34,9 +34,14 @@ const dbRow = (row, relation = {}) => {
   Object.entries(relation).forEach(([key, mapper]) => { if (value[key]) value[key] = mapper(value[key]) })
   return keys(value)
 }
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right)
+const changed = (nextRows, previousRows) => {
+  const before = new Map(previousRows.map(row => [row.id, row]))
+  return nextRows.filter(row => !same(row, before.get(row.id)))
+}
 
 const tables = [
-  ['nutrition_goals', 'goals', { userId: dbUserId }, false], ['food_items', 'foods', {}, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
+  ['nutrition_goals', 'goals', { userId: dbUserId }, false], ['food_items', 'foods', { createdBy: dbUserId }, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
   ['weight_entries', 'weightEntries', { userId: dbUserId }, true], ['recipe_ingredients', 'recipeIngredients', {}, false],
   ['workout_sessions', 'workoutSessions', { userId: dbUserId }, true], ['exercise_library', 'exerciseLibrary', {}, true],
   ['workout_exercises', 'workoutExercises', {}, true], ['workout_sets', 'workoutSets', {}, true],
@@ -101,20 +106,24 @@ export const supabaseService = {
   async save(next, previous) {
     ensure()
     const timestamp = new Date().toISOString()
-    const work = []
+    const writes = []; const deletes = []
     for (const [table, key, relations, hasUpdatedAt] of tables) {
-      const nextRows = next[key] || []; const oldIds = new Set((previous?.[key] || []).map(row => row.id)); const nextIds = new Set(nextRows.map(row => row.id))
-      const rows = nextRows.map(row => toDb(key, row, relations, hasUpdatedAt, timestamp))
-      if (rows.length) work.push(client.from(table).upsert(rows))
-      const removed = [...oldIds].filter(id => !nextIds.has(id)); if (removed.length) work.push(client.from(table).delete().in('id', removed))
+      const nextRows = next[key] || []; const oldRows = previous?.[key] || []; const oldIds = new Set(oldRows.map(row => row.id)); const nextIds = new Set(nextRows.map(row => row.id))
+      const rows = changed(nextRows, oldRows).map(row => toDb(key, row, relations, hasUpdatedAt, timestamp))
+      if (rows.length) writes.push([table, rows])
+      const removed = [...oldIds].filter(id => !nextIds.has(id)); if (removed.length) deletes.push([table, removed])
     }
-    const foodMeasures = (next.foods || []).flatMap(food => (food.measures || []).map(measure => keys({ ...measure, id: measure.id || crypto.randomUUID(), foodItemId: food.id })))
-    const previousMeasureIds = new Set((previous?.foods || []).flatMap(food => (food.measures || []).map(measure => measure.id)))
-    const measureIds = new Set(foodMeasures.map(row => row.id)); if (foodMeasures.length) work.push(client.from('food_measures').upsert(foodMeasures)); const removedMeasures = [...previousMeasureIds].filter(id => !measureIds.has(id)); if (removedMeasures.length) work.push(client.from('food_measures').delete().in('id', removedMeasures))
-    const noteRows = Object.entries(next.notes || {}).map(([key, text]) => { const [localUserId, date] = key.split(':'); return { user_id: dbUserId(localUserId), date, text, updated_at: timestamp } })
-    if (noteRows.length) work.push(client.from('daily_notes').upsert(noteRows, { onConflict: 'user_id,date' }))
+    // Parents are written before children: food → ingredients, session → exercise → set.
+    for (const [table, rows] of writes) { const { error } = await client.from(table).upsert(rows); if (error) throw error }
+    const nextMeasures = (next.foods || []).flatMap(food => (food.measures || []).map(measure => ({ ...measure, id: measure.id || crypto.randomUUID(), foodItemId: food.id })))
+    const oldMeasures = (previous?.foods || []).flatMap(food => (food.measures || []).map(measure => ({ ...measure, foodItemId: food.id })))
+    const changedMeasures = changed(nextMeasures, oldMeasures).map(row => keys(row)); if (changedMeasures.length) { const { error } = await client.from('food_measures').upsert(changedMeasures); if (error) throw error }
+    const oldMeasureIds = new Set(oldMeasures.map(row => row.id)); const measureIds = new Set(nextMeasures.map(row => row.id)); const removedMeasures = [...oldMeasureIds].filter(id => !measureIds.has(id)); if (removedMeasures.length) { const { error } = await client.from('food_measures').delete().in('id', removedMeasures); if (error) throw error }
+    const noteRows = Object.entries(next.notes || {}).filter(([key, text]) => previous?.notes?.[key] !== text).map(([key, text]) => { const [localUserId, date] = key.split(':'); return { user_id: dbUserId(localUserId), date, text, updated_at: timestamp } })
+    if (noteRows.length) { const { error } = await client.from('daily_notes').upsert(noteRows, { onConflict: 'user_id,date' }); if (error) throw error }
     const oldNoteKeys = new Set(Object.keys(previous?.notes || {})); const noteKeys = new Set(Object.keys(next.notes || {})); const removedNotes = [...oldNoteKeys].filter(key => !noteKeys.has(key)).map(key => { const [localUserId, date] = key.split(':'); return { userId: dbUserId(localUserId), date } })
-    for (const note of removedNotes) work.push(client.from('daily_notes').delete().eq('user_id', note.userId).eq('date', note.date))
-    const results = await Promise.all(work); const failed = results.find(result => result.error); if (failed) throw failed.error
+    for (const note of removedNotes) { const { error } = await client.from('daily_notes').delete().eq('user_id', note.userId).eq('date', note.date); if (error) throw error }
+    // Delete children first, avoiding foreign-key races when an exercise/session is removed.
+    for (const [table, ids] of deletes.reverse()) { const { error } = await client.from(table).delete().in('id', ids); if (error) throw error }
   },
 }

@@ -235,12 +235,12 @@ function ProductModal({ type = 'product', currentUser, onClose, onSave }) {
   })
   const addMeasure = () => setForm(f => {
     const unitName = Object.keys(UNIT_LABELS).find(value => value !== f.baseUnit)
-    return { ...f, measures: [...f.measures, { unit: unitName, label: `1 ${UNIT_LABELS[unitName]}`, amountInBase: 1 }] }
+    return { ...f, measures: [...f.measures, { id: crypto.randomUUID(), unit: unitName, label: `1 ${UNIT_LABELS[unitName]}`, amountInBase: 1 }] }
   })
   const measureField = (index, key, val) => setForm(f => ({ ...f, measures: f.measures.map((m, i) => i === index ? { ...m, [key]: val } : m) }))
   const submit = e => {
     e.preventDefault()
-    onSave({ ...form, id: crypto.randomUUID(), sourceType: 'manual', baseAmount: Number(form.baseAmount), calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs), favorite: false, archived: false, usageCount: 0, createdBy: currentUser.id, measures: form.measures.map(m => ({ ...m, amountInBase: Number(m.amountInBase) })) })
+    onSave({ ...form, id: crypto.randomUUID(), sourceType: 'manual', baseAmount: Number(form.baseAmount), calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs), favorite: false, archived: false, usageCount: 0, createdBy: currentUser.id, measures: form.measures.map(m => ({ ...m, id: m.id || crypto.randomUUID(), amountInBase: Number(m.amountInBase) })) })
   }
   return <div className="scrim" onMouseDown={e => e.target === e.currentTarget && onClose()}><section className="sheet" role="dialog" aria-modal="true" aria-labelledby="product-title">
     <header><div><span className="section-label">БАЗА</span><h2 id="product-title">{type === 'dish' ? 'Новое блюдо' : 'Новый продукт'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Закрыть"><X /></button></header>
