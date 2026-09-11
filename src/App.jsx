@@ -17,6 +17,12 @@ const sum = rows => rows.reduce((a, e) => ({
   calories: a.calories + Number(e.calories || 0), protein: a.protein + Number(e.protein || 0),
   fat: a.fat + Number(e.fat || 0), carbs: a.carbs + Number(e.carbs || 0),
 }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
+const foodKind = food => food.sourceType === 'recipe' ? 'рецепт блюдо' : food.type === 'dish' ? 'блюдо' : 'продукт'
+const matchesFoodSearch = (food, query) => {
+  const term = query.trim().toLocaleLowerCase('ru-RU')
+  return !term || [food.name, food.category, food.type, food.sourceType, foodKind(food)].some(value => String(value || '').toLocaleLowerCase('ru-RU').includes(term))
+}
+const sortFoods = foods => [...foods].sort((a, b) => Number(b.favorite) - Number(a.favorite) || Number(b.usageCount || 0) - Number(a.usageCount || 0) || a.name.localeCompare(b.name, 'ru'))
 
 function Toast({ message }) {
   return <div className={`toast ${message ? 'show' : ''}`} role="status" aria-live="polite">
@@ -80,7 +86,9 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
   const [query, setQuery] = useState(''); const [amount, setAmount] = useState(initial?.amount ?? 100)
   const [unit, setUnit] = useState(initial?.unit || 'g'); const [meal, setMeal] = useState(initial?.mealType || initialMeal || 'breakfast')
   const [date, setDate] = useState(initial?.date || initialDate || todayISO()); const [amountTouched, setAmountTouched] = useState(false)
-  const visibleFoods = foods.filter(f => !f.archived && f.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 7)
+  const activeFoods = foods.filter(food => !food.archived)
+  const visibleFoods = sortFoods(activeFoods.filter(food => matchesFoodSearch(food, query))).slice(0, 7)
+  const frequentFoods = sortFoods(activeFoods.filter(food => food.favorite || Number(food.usageCount || 0) > 0)).slice(0, 6)
   const amountNumber = Number(amount); const amountInvalid = amount === '' || !Number.isFinite(amountNumber) || amountNumber <= 0
   const available = selected ? [{ unit: selected.baseUnit, label: UNIT_LABELS[selected.baseUnit] }, ...(selected.measures || [])] : []
   const calc = selected && !amountInvalid ? calculate(selected, amountNumber, unit) : null
@@ -96,9 +104,10 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
       <form onSubmit={submit}>{!selected ? <>
         <label htmlFor="food-search">Найти продукт</label>
         <div className="search"><Search aria-hidden="true" /><input id="food-search" autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Например, овсянка" /></div>
-        {visibleFoods.length > 0 ? <div className="food-results">{visibleFoods.map(f => <button type="button" key={f.id} onClick={() => choose(f)}>
+        {!query && frequentFoods.length > 0 && <section className="frequent-foods" aria-label="Частые продукты"><span className="section-label">ЧАСТЫЕ</span><div className="frequent-food-grid">{frequentFoods.map(food => <button type="button" key={food.id} onClick={() => choose(food)}><strong>{food.name}</strong><small>{food.favorite ? 'Избранное' : `${food.usageCount || 0} раз`}</small></button>)}</div></section>}
+        {visibleFoods.length > 0 ? <><p className="food-results-title">{query ? 'Результаты поиска' : 'Все продукты и блюда'}</p><div className="food-results">{visibleFoods.map(f => <button type="button" key={f.id} onClick={() => choose(f)}>
           <div className="food-icon"><Utensils aria-hidden="true" /></div><span><strong>{f.name}</strong><small>{f.calories} ккал · Б {f.protein} · Ж {f.fat} · У {f.carbs}</small></span><ChevronRight aria-hidden="true" />
-        </button>)}</div> : <div className="compact-empty"><Search aria-hidden="true" /><strong>{query ? 'Ничего не нашли' : 'База продуктов пуста'}</strong><span>{query ? 'Попробуйте другое название.' : 'Создайте первый продукт.'}</span></div>}
+        </button>)}</div></> : <div className="compact-empty"><Search aria-hidden="true" /><strong>{query ? 'Ничего не найдено' : 'База продуктов пуста'}</strong><span>{query ? 'Проверьте название, категорию или тип.' : 'Создайте первый продукт.'}</span></div>}
         <div className="quick-create-actions"><button type="button" className="secondary" onClick={() => onCreate({ meal, date, type: 'product' })}><PackagePlus aria-hidden="true" />Создать продукт</button>
           <button type="button" className="secondary" onClick={() => onCreate({ meal, date, type: 'dish' })}><CookingPot aria-hidden="true" />Простое блюдо</button></div>
         <button className="primary wide" disabled>Сначала выберите продукт</button>
@@ -115,6 +124,15 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
       </>}</form>
     </section>
   </div>
+}
+
+function RepeatEntryModal({ entry, date, onClose, onSave }) {
+  const [meal, setMeal] = useState(entry.mealType)
+  const submit = event => { event.preventDefault(); onSave(meal) }
+  return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet repeat-sheet" role="dialog" aria-modal="true" aria-labelledby="repeat-entry-title">
+    <header><div><span className="section-label">ПОВТОРИТЬ ЕДУ</span><h2 id="repeat-entry-title">{entry.foodName}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
+    <form onSubmit={submit}><div className="repeat-summary"><strong>{entry.amount} {UNIT_LABELS[entry.unit] || entry.unit}</strong><span>{round(entry.calories)} ккал · Б {round(entry.protein)} · Ж {round(entry.fat)} · У {round(entry.carbs)}</span></div><label>Добавить в приём пищи<select value={meal} onChange={event => setMeal(event.target.value)}>{Object.entries(MEALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><p className="form-hint">Количество и снимок КБЖУ будут сохранены без изменений.</p><button className="primary wide"><Copy aria-hidden="true" />Повторить</button></form>
+  </section></div>
 }
 
 function RecipeModal({ foods, initial, initialIngredients, currentUser, onClose, onSave }) {
@@ -276,8 +294,30 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
   const note = data.notes[noteKey] || ''; const dayIsEmpty = dayEntries.length === 0 && !note
   const saveEntry = entry => {
     const editing = Boolean(modal?.entry)
-    update(d => ({ ...d, entries: [...d.entries.filter(e => e.id !== entry.id), { ...entry, userId: profile.id }], foods: d.foods.map(f => f.id === entry.foodItemId ? { ...f, usageCount: (f.usageCount || 0) + (editing ? 0 : 1) } : f) }))
+    update(d => ({ ...d, entries: [...d.entries.filter(e => e.id !== entry.id), { ...entry, userId: profile.id }], foods: viewer.role === 'admin' ? d.foods.map(f => f.id === entry.foodItemId ? { ...f, usageCount: (f.usageCount || 0) + (editing ? 0 : 1) } : f) : d.foods }))
     setMeal(entry.mealType); setModal(null); notify(editing ? 'Запись обновлена' : 'Еда добавлена')
+  }
+  const addRepeatedEntries = (records, targetMeal, message) => {
+    const copies = records.map(record => {
+      const { id, createdAt, updatedAt, ...snapshot } = record
+      return { ...snapshot, id: crypto.randomUUID(), date, mealType: targetMeal }
+    })
+    update(current => ({
+      ...current,
+      entries: [...current.entries, ...copies],
+      foods: viewer.role === 'admin' ? current.foods.map(food => {
+        const times = copies.filter(entry => entry.foodItemId === food.id).length
+        return times ? { ...food, usageCount: (food.usageCount || 0) + times } : food
+      }) : current.foods,
+    }))
+    setMeal(targetMeal); setModal(null); notify(message)
+  }
+  const repeatEntry = (entry, targetMeal) => addRepeatedEntries([entry], targetMeal, 'Еда повторена')
+  const repeatYesterdayMeal = () => {
+    const yesterdayEntries = data.entries.filter(entry => entry.userId === profile.id && entry.date === shiftDate(date, -1) && entry.mealType === meal)
+    if (yesterdayEntries.length === 0) { notify(`Вчера в «${MEALS[meal].toLowerCase()}» записей не было`); return }
+    if (!window.confirm(`Добавить ${yesterdayEntries.length} ${yesterdayEntries.length === 1 ? 'запись' : 'записи'} из вчерашнего ${MEALS[meal].toLowerCase()}? Текущие записи останутся.`)) return
+    addRepeatedEntries(yesterdayEntries, meal, 'Приём пищи повторён из вчера')
   }
   const remove = id => {
     if (window.confirm('Удалить эту запись из дневника?')) { update(d => ({ ...d, entries: d.entries.filter(e => e.id !== id) })); notify('Запись удалена') }
@@ -299,11 +339,12 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
     {viewer.id === 'danya' && <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />}
     {date !== todayISO() && dayIsEmpty && <div className="day-empty"><FileQuestion aria-hidden="true" /><div><strong>На {prettyDate(date)} нет истории</strong><span>Добавьте еду или комментарий, чтобы создать запись дня.</span></div></div>}
     <section className="meal-section"><div className="meal-tabs" role="tablist">{Object.entries(MEALS).map(([k, v]) => <button role="tab" aria-selected={meal === k} className={meal === k ? 'active' : ''} key={k} onClick={() => setMeal(k)}>{v}</button>)}</div>
-      <div className="meal-list">{mealEntries.length === 0 ? <div className="empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>В {MEALS[meal].toLowerCase()} пока нет еды</strong><span>Добавьте первую запись.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
-      <div className="meal-total"><span>Итого за приём</span><strong>{round(mealTotal.calories)} ккал</strong></div><button className="primary wide" onClick={() => setModal({ meal, date })}><Plus aria-hidden="true" />Добавить еду</button>
+      <div className="meal-list">{mealEntries.length === 0 ? <div className="empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>В {MEALS[meal].toLowerCase()} пока нет еды</strong><span>Добавьте первую запись.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Повторить ${e.foodName}`} onClick={() => setModal({ repeat: e })}><Copy /></button><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
+      <button className="secondary meal-repeat" onClick={repeatYesterdayMeal}><Copy aria-hidden="true" />Повторить из вчера</button><div className="meal-total"><span>Итого за приём</span><strong>{round(mealTotal.calories)} ккал</strong></div><button className="primary wide" onClick={() => setModal({ meal, date })}><Plus aria-hidden="true" />Добавить еду</button>
     </section>
     <DayNote key={noteKey} value={note} onSave={saveNote} onDelete={deleteNote} />
-    {modal && <AddFoodModal foods={data.foods} initial={modal.entry || null} initialMeal={modal.meal || meal} initialDate={modal.date || date} onClose={() => setModal(null)} onSave={saveEntry} onCreate={context => { setModal(null); setCreating(context) }} />}
+    {modal?.repeat && <RepeatEntryModal entry={modal.repeat} date={date} onClose={() => setModal(null)} onSave={targetMeal => repeatEntry(modal.repeat, targetMeal)} />}
+    {modal && !modal.repeat && <AddFoodModal foods={data.foods} initial={modal.entry || null} initialMeal={modal.meal || meal} initialDate={modal.date || date} onClose={() => setModal(null)} onSave={saveEntry} onCreate={context => { setModal(null); setCreating(context) }} />}
     {creating && <ProductModal type={creating.type || 'product'} currentUser={viewer} onClose={() => setCreating(null)} onSave={createFood} />}
   </>
 }
@@ -376,7 +417,7 @@ function HistoryPage({ viewer, profile, setProfile, data, setDate, goToday }) {
 function ProductsPage({ viewer, data, update, notify }) {
   const [query, setQuery] = useState(''); const [category, setCategory] = useState('Все'); const [favorites, setFavorites] = useState(false); const [modal, setModal] = useState(null)
   const activeFoods = data.foods.filter(f => !f.archived)
-  const foods = activeFoods.filter(f => f.name.toLowerCase().includes(query.trim().toLowerCase()) && (category === 'Все' || f.category === category) && (!favorites || f.favorite)).sort((a, b) => b.usageCount - a.usageCount)
+  const foods = sortFoods(activeFoods.filter(food => matchesFoodSearch(food, query) && (category === 'Все' || food.category === category) && (!favorites || food.favorite)))
   const filtersActive = Boolean(query.trim()) || category !== 'Все' || favorites
   const save = food => { update(d => ({ ...d, foods: [...d.foods, food] })); setModal(null); notify(food.type === 'dish' ? 'Блюдо сохранено' : 'Продукт сохранён') }
   const saveRecipe = (food, ingredients) => {

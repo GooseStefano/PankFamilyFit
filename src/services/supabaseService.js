@@ -99,11 +99,13 @@ const tables = [
 const toUi = (key, row) => {
   const value = mapRow(row)
   if (key === 'foods') return { ...value, favorite: value.isFavorite, archived: value.isArchived, measures: [] }
+  if (key === 'entries') return { ...value, foodName: value.foodNameSnapshot, calories: value.caloriesSnapshot, protein: value.proteinSnapshot, fat: value.fatSnapshot, carbs: value.carbsSnapshot }
   return value
 }
 const toDb = (key, row, relations, hasUpdatedAt, timestamp) => {
   const value = { ...row }
   if (key === 'foods') { value.isFavorite = value.favorite; value.isArchived = value.archived; delete value.favorite; delete value.archived; delete value.measures }
+  if (key === 'entries') { value.foodNameSnapshot = value.foodName; value.caloriesSnapshot = value.calories; value.proteinSnapshot = value.protein; value.fatSnapshot = value.fat; value.carbsSnapshot = value.carbs; delete value.foodName; delete value.calories; delete value.protein; delete value.fat; delete value.carbs }
   if (hasUpdatedAt) value.updatedAt = value.updatedAt || timestamp
   else delete value.updatedAt
   return dbRow(value, relations)
