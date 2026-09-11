@@ -542,15 +542,15 @@ export default function App() {
   const [profile, setProfile] = useState(viewer || USERS[0]); const [page, setPage] = useState('today'); const [date, setDate] = useState(todayISO())
   const [toast, setToast] = useState(''); const toastTimer = useRef(null)
   const notify = message => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(''), 2600) }
-  const { data, update, loading, error: storageError, mode, status, reload } = useStore({ onError: notify })
+  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, reload } = useStore({ onError: notify })
   useEffect(() => () => clearTimeout(toastTimer.current), [])
   if (!viewer) return <Login onLogin={user => { setViewer(user); setProfile(user); reload() }} />
   const gotoDate = value => { setDate(value); setPage('today') }
   const logout = () => { storage.logout(); setPage('today'); setDate(todayISO()); setViewer(null) }
   if (loading) return <main className="loading-shell" role="status" aria-live="polite"><div className="brand-mark"><Apple aria-hidden="true" /></div><strong>Загружаем семейный дневник…</strong><span>Проверяем синхронизацию данных.</span></main>
   return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
-    <div className={`storage-status ${mode}`} role="status">{status}</div>
-    {storageError && <section className="sync-error" role="alert"><strong>Не удалось подключиться к Supabase</strong><span>{storageError}</span><button className="secondary" onClick={reload}>Повторить</button></section>}
+    <div className={`storage-status ${mode} ${syncState}`} role="status">{status}</div>
+    {storageError && <section className="sync-error" role="alert"><strong>{errorTitle}</strong><span>{storageError}</span><button className="secondary" onClick={reload}>Повторить</button></section>}
     {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}
     {page === 'history' && <HistoryPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} setDate={gotoDate} goToday={() => gotoDate(todayISO())} />}
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}

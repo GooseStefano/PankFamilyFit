@@ -17,6 +17,7 @@ const read = () => {
   try { return { ...emptyState(true), ...JSON.parse(localStorage.getItem(STORAGE_KEY)) } }
   catch { return emptyState(true) }
 }
+export const cacheState = state => localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 
 const sha256 = async value => {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
@@ -27,7 +28,7 @@ export const localStorageService = {
   mode: 'local',
   status: 'Локальный режим',
   async load() { return read() },
-  async save(next) { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) },
+  async save(next) { cacheState(next) },
   async login(pin) {
     const hash = await sha256(pin)
     const id = Object.entries(DEV_PIN_HASHES).find(([, pinHash]) => pinHash === hash)?.[0]

@@ -1,19 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
-import { emptyState } from './localStorageService'
+import { cacheState, emptyState } from './localStorageService'
 
 const SESSION_KEY = 'pff-session'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const configured = Boolean(url && anonKey)
 let marker = null
-let client = null
+let activeToken = null
+// A single client prevents duplicate GoTrueClient instances. accessToken supplies the
+// custom PIN JWT to every REST request without creating a Supabase Auth session.
+const client = configured ? createClient(url, anonKey, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  accessToken: async () => activeToken,
+}) : null
 
 const camel = value => value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
 const snake = value => value.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
 const keys = value => Object.fromEntries(Object.entries(value).map(([key, item]) => [snake(key), item]))
 const withDates = value => Object.fromEntries(Object.entries(value).map(([key, item]) => [camel(key), item]))
-const setClient = token => { client = createClient(url, anonKey, { global: token ? { headers: { Authorization: `Bearer ${token}` } } : {} }) }
-if (configured) setClient()
+const setToken = token => { activeToken = token || null }
 
 const userId = value => ({
   '00000000-0000-0000-0000-000000000001': 'danya',
@@ -66,12 +71,12 @@ const ensure = () => { if (!configured) throw new Error('Supabase не наст�
 
 export const supabaseService = {
   mode: 'supabase',
-  get status() { return 'Синхронизация Supabase' },
+  get status() { return 'Синхронизация активна' },
   configured,
   session() {
     try {
       const saved = JSON.parse(localStorage.getItem(SESSION_KEY))
-      if (saved?.mode === 'supabase' && saved.token && Number(saved.expiresAt || 0) > Date.now()) { marker = saved; setClient(saved.token); return saved }
+      if (saved?.mode === 'supabase' && saved.token && Number(saved.expiresAt || 0) > Date.now()) { marker = saved; setToken(saved.token); return saved }
     } catch { /* ignored */ }
     return null
   },
@@ -81,10 +86,10 @@ export const supabaseService = {
     const token = data?.access_token || data?.token
     if (error || !token || !data?.user?.id) throw new Error(data?.error || error?.message || 'Не удалось выполнить вход.')
     marker = { ...data.user, token, expiresAt: data.expiresAt, mode: 'supabase' }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(marker)); setClient(marker.token)
+    localStorage.setItem(SESSION_KEY, JSON.stringify(marker)); setToken(marker.token)
     return marker
   },
-  logout() { marker = null; localStorage.removeItem(SESSION_KEY); if (configured) setClient() },
+  logout() { marker = null; setToken(null); localStorage.removeItem(SESSION_KEY) },
   async load() {
     ensure()
     const requests = [...tables.map(([table]) => client.from(table).select('*')), client.from('food_measures').select('*'), client.from('daily_notes').select('*')]

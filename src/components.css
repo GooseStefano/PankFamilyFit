@@ -7,6 +7,8 @@
 
 .storage-status { display: inline-flex; align-items: center; min-height: 28px; margin: 0 0 12px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .storage-status.supabase { border-color: #71883e; color: var(--accent); }
+.storage-status.connecting { border-color: var(--border); color: var(--muted); }
+.storage-status.connection-error, .storage-status.permission-error { border-color: #70434a; color: var(--danger); }
 .loading-shell { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 10%, #3b4727, transparent 34%), var(--bg); }
 .loading-shell .brand-mark { margin-bottom: 8px; }
 .loading-shell span { color: var(--muted); font-size: 13px; }
