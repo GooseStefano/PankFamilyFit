@@ -78,8 +78,9 @@ export const supabaseService = {
   async login(pin) {
     if (!configured) throw new Error('Supabase не настроен.')
     const { data, error } = await client.functions.invoke('pin-login', { body: { pin } })
-    if (error || !data?.token || !data?.user?.id) throw new Error(data?.error || error?.message || 'Не удалось выполнить вход.')
-    marker = { ...data.user, token: data.token, expiresAt: data.expiresAt, mode: 'supabase' }
+    const token = data?.access_token || data?.token
+    if (error || !token || !data?.user?.id) throw new Error(data?.error || error?.message || 'Не удалось выполнить вход.')
+    marker = { ...data.user, token, expiresAt: data.expiresAt, mode: 'supabase' }
     localStorage.setItem(SESSION_KEY, JSON.stringify(marker)); setClient(marker.token)
     return marker
   },

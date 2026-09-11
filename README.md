@@ -15,7 +15,7 @@ npm run dev
 
 1. Создайте проект Supabase и примените весь файл `supabase/schema.sql` в SQL Editor.
 2. Скопируйте `.env.example` в `.env.local` и задайте `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`.
-3. В Supabase CLI добавьте серверные секреты: `SUPABASE_SERVICE_ROLE_KEY` и `SUPABASE_JWT_SECRET` (значение JWT Secret проекта). Не добавляйте их в Vite env или репозиторий.
+3. В Supabase CLI добавьте серверные секреты: `PANK_SERVICE_ROLE_KEY` и `PIN_JWT_SECRET` (значение JWT Secret проекта). Не добавляйте их в Vite env или репозиторий.
 4. Задеплойте PIN-функцию: `supabase functions deploy pin-login --no-verify-jwt`.
 5. Перезапустите `npm run dev`. При заданных Vite-переменных приложение показывает «Синхронизация Supabase» и загружает данные из базы.
 
@@ -25,7 +25,7 @@ PIN никогда не записывается в localStorage и не нах�
 
 ## Проверка production sync v0.7.1
 
-Перед первым запуском сверьте в панели Supabase: SQL Editor выполнил `schema.sql` без ошибок, в Edge Functions есть `pin-login`, а в Function Secrets заданы `SUPABASE_SERVICE_ROLE_KEY` и `SUPABASE_JWT_SECRET`. Затем создайте `.env.local` только с публичными `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`; после изменения env всегда перезапускайте Vite. `.env.local` не коммитится.
+Перед первым запуском сверьте в панели Supabase: SQL Editor выполнил `schema.sql` без ошибок, в Edge Functions есть `pin-login`, а в Function Secrets заданы `PANK_SERVICE_ROLE_KEY` и `PIN_JWT_SECRET`. Затем создайте `.env.local` только с публичными `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`; после изменения env всегда перезапускайте Vite. `.env.local` не коммитится.
 
 Нюансы синхронизации: сервис сохраняет только изменившиеся строки, а не весь снимок. Это необходимо, чтобы RLS не блокировал собственные записи Вики из-за общих продуктов. Родительские сущности сохраняются до зависимых (блюдо → ингредиенты, тренировка → упражнение → подход), а удаляются в обратном порядке. Меры продуктов получают UUID ещё в UI, поэтому повторное сохранение не создаёт дубликатов.
 

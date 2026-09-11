@@ -53,9 +53,10 @@ alter table direct_messages enable row level security;
 -- PIN-проверку и CRUD выполняйте через Edge Function, которая выдаёт короткоживущий JWT
 -- с user_id/role; затем добавьте RLS-политики по этим claims.
 
--- v0.7.0: короткоживущий JWT из Edge Function pin-login содержит app_user_id и app_role.
-create or replace function pff_user_id() returns uuid language sql stable as $$ select nullif(auth.jwt() ->> 'app_user_id', '')::uuid $$;
-create or replace function pff_is_admin() returns boolean language sql stable as $$ select coalesce(auth.jwt() ->> 'app_role' = 'admin', false) $$;
+-- v0.7.1: короткоживущий JWT из Edge Function pin-login всегда имеет role=authenticated;
+-- семейные claims pff_user_id и pff_role используются только в RLS.
+create or replace function pff_user_id() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'pff_user_id', '')::uuid $$;
+create or replace function pff_is_admin() returns boolean language sql stable as $$ select coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'pff_role' = 'admin', false) $$;
 create or replace function set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
 create or replace function pff_apply_updated_at() returns void language plpgsql as $$
 declare table_name text;
