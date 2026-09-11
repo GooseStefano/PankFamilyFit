@@ -22,7 +22,7 @@ export function useStore({ onError } = {}) {
   useEffect(() => {
     if (storage.mode === 'supabase' && !storage.session()) { setLoading(false); setSyncState('connecting'); return undefined }
     let active = true
-    storage.load().then(next => { if (active) { snapshot.current = next; cacheState(next); setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') } })
+    storage.load().then(next => { if (active) { snapshot.current = next; if (storage.mode === 'local' || !storage.hasLocalMigration) cacheState(next, storage.mode); setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') } })
       .catch(reason => { if (active) { const next = failure(reason); setSyncState(next.state); setErrorTitle(next.title); setError(next.message); onErrorRef.current?.(next.message) } })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
@@ -30,7 +30,7 @@ export function useStore({ onError } = {}) {
 
   const reload = useCallback(async () => {
     setLoading(true); setSyncState('connecting')
-    try { const next = await storage.load(); snapshot.current = next; cacheState(next); setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') }
+    try { const next = await storage.load(); snapshot.current = next; if (storage.mode === 'local' || !storage.hasLocalMigration) cacheState(next, storage.mode); setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') }
     catch (reason) { const next = failure(reason); setSyncState(next.state); setErrorTitle(next.title); setError(next.message) }
     finally { setLoading(false) }
   }, [])
@@ -38,11 +38,26 @@ export function useStore({ onError } = {}) {
   const update = useCallback(fn => {
     setData(previous => {
       const next = fn(previous); const before = snapshot.current
-      snapshot.current = next; cacheState(next)
+      snapshot.current = next; if (storage.mode === 'local' || !storage.hasLocalMigration) cacheState(next, storage.mode)
       Promise.resolve(storage.save(next, before)).then(() => { if (storage.mode === 'supabase') setSyncState('active') }).catch(reason => { const problem = failure(reason); setSyncState(problem.state); setErrorTitle(problem.title); setError(problem.message); onErrorRef.current?.(problem.message) })
       return next
     })
   }, [])
 
-  return { data, update, loading, error, errorTitle, mode: storage.mode, status: statusText(syncState), syncState, reload }
+  const migrateLocalData = useCallback(async () => {
+    if (storage.mode !== 'supabase' || !storage.hasLocalMigration) return false
+    setLoading(true); setSyncState('connecting')
+    try {
+      const next = await storage.migrateLocalData(snapshot.current)
+      snapshot.current = next; setData(next); setSyncState('active'); return true
+    } catch (reason) {
+      const problem = failure(reason); setSyncState(problem.state); setErrorTitle(problem.title); setError(problem.message); return false
+    } finally { setLoading(false) }
+  }, [])
+  const dismissLocalMigration = useCallback(() => {
+    storage.dismissLocalMigration?.()
+    cacheState(snapshot.current, storage.mode)
+  }, [])
+
+  return { data, update, loading, error, errorTitle, mode: storage.mode, status: statusText(syncState), syncState, reload, hasLocalMigration: Boolean(storage.hasLocalMigration), migrateLocalData, dismissLocalMigration }
 }

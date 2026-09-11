@@ -15,6 +15,12 @@
 .sync-error { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; padding: 14px; border: 1px solid #70434a; border-radius: 16px; background: var(--surface); color: var(--muted); font-size: 12px; }
 .sync-error strong { color: var(--danger); }
 .sync-error .secondary { align-self: flex-start; min-height: 44px; }
+.backup-card .form-hint, .migration-card .form-hint { margin: 14px 0; line-height: 1.5; }
+.backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.backup-actions .primary, .backup-actions .secondary { min-width: 0; padding: 0 10px; font-size: 12px; }
+.backup-error { margin: 12px 0 0; color: var(--danger); font-size: 12px; line-height: 1.45; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 374px) { .backup-actions { grid-template-columns: 1fr; } }
 .measure-head > div { display: flex; flex-direction: column; gap: 3px; }
 .measure-head span { color: var(--muted); font-size: 10px; }
 .small-add {

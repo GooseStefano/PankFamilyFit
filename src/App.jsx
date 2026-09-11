@@ -10,6 +10,7 @@ import { useStore } from './useStore'
 import { storage } from './services/storage'
 import WorkoutPage from './WorkoutPage'
 import { DailyMessages, PhraseSettings, TomorrowMessageSettings } from './DailyMessages'
+import BackupSettings from './BackupSettings'
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10
 const sum = rows => rows.reduce((a, e) => ({
@@ -514,7 +515,7 @@ function WeightPage({ viewer, profile, setProfile, data, update, notify }) {
   </>
 }
 
-function SettingsPage({ viewer, data, update, onLogout, notify }) {
+function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
   const [profileId, setProfileId] = useState('danya'); const latest = getGoal(data.goals, profileId, todayISO()); const [form, setForm] = useState({ ...latest, startDate: todayISO() })
   const select = id => { setProfileId(id); const goal = getGoal(data.goals, id, todayISO()); setForm({ ...goal, startDate: todayISO() }) }
   const save = e => {
@@ -523,6 +524,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify }) {
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <section className="settings-card"><div className="card-title"><div><span className="section-label">ЦЕЛИ КБЖУ</span><h2>Новая цель</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(u => <button key={u.id} className={profileId === u.id ? 'active' : ''} onClick={() => select(u.id)}>{u.name}</button>)}</div><form onSubmit={save}><label>Применить с даты<input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки'], ['fat', 'Жиры'], ['carbs', 'Углеводы']].map(([k, l]) => <label key={k}>{l}<input type="number" min="0" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>)}</div><button className="primary wide">Сохранить новую цель</button></form><p className="form-hint">Старые дни сохранят прежние цели.</p></section>}
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}
+    {viewer.role === 'admin' && <BackupSettings data={data} update={update} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}
     <section className="settings-card"><div className="card-title"><div><span className="section-label">УСТРОЙСТВО</span><h2>Сеанс</h2></div><CircleUserRound aria-hidden="true" /></div><button className="danger wide" onClick={onLogout}><LogOut aria-hidden="true" />Выйти на этом устройстве</button></section>
   </>
 }
@@ -542,7 +544,7 @@ export default function App() {
   const [profile, setProfile] = useState(viewer || USERS[0]); const [page, setPage] = useState('today'); const [date, setDate] = useState(todayISO())
   const [toast, setToast] = useState(''); const toastTimer = useRef(null)
   const notify = message => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(''), 2600) }
-  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, reload } = useStore({ onError: notify })
+  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, reload, hasLocalMigration, migrateLocalData, dismissLocalMigration } = useStore({ onError: notify })
   useEffect(() => () => clearTimeout(toastTimer.current), [])
   if (!viewer) return <Login onLogin={user => { setViewer(user); setProfile(user); reload() }} />
   const gotoDate = value => { setDate(value); setPage('today') }
@@ -556,6 +558,6 @@ export default function App() {
     {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
     {page === 'workouts' && viewer.id === 'danya' && <WorkoutPage viewer={viewer} data={data} update={update} notify={notify} />}
     {page === 'products' && viewer.role === 'admin' && <ProductsPage viewer={viewer} data={data} update={update} notify={notify} />}
-    {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} />}
+    {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>
 }

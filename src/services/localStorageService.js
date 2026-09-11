@@ -1,6 +1,7 @@
 import { INITIAL_FOODS, INITIAL_GOALS, INITIAL_WEIGHT_ENTRIES } from '../data'
 
 export const STORAGE_KEY = 'pank-family-fit-v01'
+export const CACHE_ORIGIN_KEY = 'pff-cache-origin'
 const SESSION_KEY = 'pff-session'
 const DEV_PIN_HASHES = {
   danya: 'e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c',
@@ -13,11 +14,12 @@ export const emptyState = (withDemo = false) => ({
   exerciseLibrary: [], workoutExercises: [], workoutSets: [], messagePhrases: [], dailyPhraseShows: [], directMessages: [],
 })
 
-const read = () => {
+export const readCachedState = () => {
   try { return { ...emptyState(true), ...JSON.parse(localStorage.getItem(STORAGE_KEY)) } }
   catch { return emptyState(true) }
 }
-export const cacheState = state => localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+export const hasCachedState = () => Boolean(localStorage.getItem(STORAGE_KEY))
+export const cacheState = (state, origin = 'local') => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); localStorage.setItem(CACHE_ORIGIN_KEY, origin) }
 
 const sha256 = async value => {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
@@ -27,7 +29,7 @@ const sha256 = async value => {
 export const localStorageService = {
   mode: 'local',
   status: 'Локальный режим',
-  async load() { return read() },
+  async load() { return readCachedState() },
   async save(next) { cacheState(next) },
   async login(pin) {
     const hash = await sha256(pin)

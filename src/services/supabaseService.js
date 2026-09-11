@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { cacheState, emptyState } from './localStorageService'
+import { CACHE_ORIGIN_KEY, cacheState, emptyState, hasCachedState, readCachedState } from './localStorageService'
 
 const SESSION_KEY = 'pff-session'
 const url = import.meta.env.VITE_SUPABASE_URL
@@ -7,6 +7,8 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const configured = Boolean(url && anonKey)
 let marker = null
 let activeToken = null
+const migrationMarker = 'pff-local-migration-offered-v1'
+const pendingLocalData = hasCachedState() && localStorage.getItem(CACHE_ORIGIN_KEY) !== 'supabase' ? readCachedState() : null
 // A single client prevents duplicate GoTrueClient instances. accessToken supplies the
 // custom PIN JWT to every REST request without creating a Supabase Auth session.
 const client = configured ? createClient(url, anonKey, {
@@ -44,6 +46,46 @@ const changed = (nextRows, previousRows) => {
   const before = new Map(previousRows.map(row => [row.id, row]))
   return nextRows.filter(row => !same(row, before.get(row.id)))
 }
+const mergeBy = (remote, local, key) => [...remote, ...local.filter(item => !remote.some(existing => key(existing) === key(item)))]
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const prepareLocalForSupabase = source => {
+  const ids = new Map(); const id = (kind, value) => {
+    if (!value || UUID.test(value)) return value || crypto.randomUUID()
+    const key = `${kind}:${value}`; if (!ids.has(key)) ids.set(key, crypto.randomUUID()); return ids.get(key)
+  }
+  const foods = source.foods.map(food => ({ ...food, id: id('food', food.id), measures: (food.measures || []).map(measure => ({ ...measure, id: id('measure', measure.id) })) }))
+  const workoutSessions = source.workoutSessions.map(item => ({ ...item, id: id('session', item.id) }))
+  const exerciseLibrary = source.exerciseLibrary.map(item => ({ ...item, id: id('library', item.id) }))
+  const workoutExercises = source.workoutExercises.map(item => ({ ...item, id: id('workoutExercise', item.id), workoutSessionId: id('session', item.workoutSessionId), exerciseLibraryId: item.exerciseLibraryId ? id('library', item.exerciseLibraryId) : null }))
+  return {
+    ...source, foods,
+    goals: source.goals.map(item => ({ ...item, id: id('goal', item.id) })),
+    entries: source.entries.map(item => ({ ...item, id: id('entry', item.id), foodItemId: item.foodItemId ? id('food', item.foodItemId) : null })),
+    weightEntries: source.weightEntries.map(item => ({ ...item, id: id('weight', item.id) })),
+    recipeIngredients: source.recipeIngredients.map(item => ({ ...item, id: id('ingredient', item.id), recipeFoodItemId: item.recipeFoodItemId ? id('food', item.recipeFoodItemId) : null, ingredientFoodItemId: item.ingredientFoodItemId ? id('food', item.ingredientFoodItemId) : null })),
+    workoutSessions, exerciseLibrary, workoutExercises,
+    workoutSets: source.workoutSets.map(item => ({ ...item, id: id('set', item.id), workoutExerciseId: id('workoutExercise', item.workoutExerciseId) })),
+    messagePhrases: source.messagePhrases.map(item => ({ ...item, id: id('phrase', item.id) })),
+    dailyPhraseShows: source.dailyPhraseShows.map(item => ({ ...item, id: id('show', item.id), phraseId: item.phraseId ? id('phrase', item.phraseId) : null })),
+    directMessages: source.directMessages.map(item => ({ ...item, id: id('message', item.id) })),
+  }
+}
+const mergeLocal = (remote, local) => ({
+  ...remote,
+  foods: mergeBy(remote.foods, local.foods, item => `${item.type}:${String(item.name).trim().toLowerCase()}`),
+  goals: mergeBy(remote.goals, local.goals, item => `${item.userId}:${item.startDate}`),
+  entries: mergeBy(remote.entries, local.entries, item => item.id),
+  notes: { ...local.notes, ...remote.notes },
+  weightEntries: mergeBy(remote.weightEntries, local.weightEntries, item => `${item.userId}:${item.date}`),
+  recipeIngredients: mergeBy(remote.recipeIngredients, local.recipeIngredients, item => item.id),
+  workoutSessions: mergeBy(remote.workoutSessions, local.workoutSessions, item => `${item.userId}:${item.date}`),
+  exerciseLibrary: mergeBy(remote.exerciseLibrary, local.exerciseLibrary, item => String(item.name).toLowerCase()),
+  workoutExercises: mergeBy(remote.workoutExercises, local.workoutExercises, item => item.id),
+  workoutSets: mergeBy(remote.workoutSets, local.workoutSets, item => item.id),
+  messagePhrases: mergeBy(remote.messagePhrases, local.messagePhrases, item => `${item.targetUserId}:${item.text}`),
+  dailyPhraseShows: mergeBy(remote.dailyPhraseShows, local.dailyPhraseShows, item => `${item.targetUserId}:${item.date}`),
+  directMessages: mergeBy(remote.directMessages, local.directMessages, item => `${item.fromUserId}:${item.toUserId}:${item.showDate}`),
+})
 
 const tables = [
   ['nutrition_goals', 'goals', { userId: dbUserId }, false], ['food_items', 'foods', { createdBy: dbUserId }, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
@@ -73,6 +115,15 @@ export const supabaseService = {
   mode: 'supabase',
   get status() { return 'Синхронизация активна' },
   configured,
+  get hasLocalMigration() { return Boolean(pendingLocalData) && !localStorage.getItem(migrationMarker) },
+  async migrateLocalData(remoteState) {
+    if (!pendingLocalData) return remoteState
+    const merged = mergeLocal(remoteState, prepareLocalForSupabase(pendingLocalData))
+    await this.save(merged, remoteState)
+    cacheState(merged, 'supabase'); localStorage.setItem(migrationMarker, 'done')
+    return merged
+  },
+  dismissLocalMigration() { localStorage.setItem(migrationMarker, 'done') },
   session() {
     try {
       const saved = JSON.parse(localStorage.getItem(SESSION_KEY))
