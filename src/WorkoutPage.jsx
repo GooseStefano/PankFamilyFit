@@ -16,6 +16,64 @@ const stamp = () => new Date().toISOString()
 const numberOrNull = value => value === '' ? null : Number(value)
 const displayValue = value => value === null || value === undefined || value === '' ? '—' : value
 const russianDate = iso => new Intl.DateTimeFormat('ru-RU').format(new Date(`${iso}T12:00:00`))
+const normalName = name => String(name || '').trim().toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ')
+const setIsCompleted = item => item.weight !== '' && item.reps !== '' && Number.isFinite(Number(item.weight)) && Number.isFinite(Number(item.reps)) && Number(item.weight) >= 0 && Number(item.reps) > 0
+const exerciseSets = (exercise, sets) => sets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)
+const formatVolume = volume => `${Math.round(volume).toLocaleString('ru-RU')} кг`
+
+function sameExercise(exercise, candidates) {
+  if (exercise.exerciseLibraryId) return candidates.find(item => item.exerciseLibraryId === exercise.exerciseLibraryId) || null
+  return candidates.find(item => normalName(item.name) === normalName(exercise.name)) || null
+}
+
+function exerciseMetrics(exercise, sets) {
+  const completed = sets.filter(setIsCompleted)
+  const difficulties = completed.map(item => Number(item.difficulty)).filter(value => Number.isFinite(value) && value >= 1 && value <= 10)
+  return {
+    totalSets: sets.length,
+    completedSets: completed.length,
+    missedSets: Math.max(sets.length - completed.length, 0),
+    bestWeight: completed.length ? Math.max(...completed.map(item => Number(item.weight))) : null,
+    totalReps: completed.reduce((sum, item) => sum + Number(item.reps), 0),
+    volume: completed.reduce((sum, item) => sum + Number(item.weight) * Number(item.reps), 0),
+    maxDifficulty: difficulties.length ? Math.max(...difficulties) : null,
+    allAtRepMax: completed.length === Number(exercise.plannedSets) && completed.every(item => Number(item.reps) >= Number(exercise.repMax)),
+  }
+}
+
+function progressLabel(current, previous) {
+  if (!previous || !current.completedSets || !previous.completedSets) return 'нет данных'
+  const change = current.volume - previous.volume
+  if (change > 0) return `+ объём · ${formatVolume(change)}`
+  if (change < 0) return `- объём · ${formatVolume(Math.abs(change))}`
+  return 'без изменений'
+}
+
+function nextStepHint(exercise, current, previous) {
+  if (!current.completedSets) return 'Пока мало данных для подсказки.'
+  if (current.missedSets) return 'Лучше оставить вес и добрать подходы.'
+  if (previous?.completedSets && current.volume < previous.volume) return 'Нагрузка снизилась. Проверь самочувствие и технику.'
+  if (current.allAtRepMax && current.maxDifficulty !== null && current.maxDifficulty <= 8) return 'Можно попробовать немного увеличить вес.'
+  if (current.maxDifficulty !== null && current.maxDifficulty >= 9) return 'Лучше оставить вес и закрепить результат.'
+  return 'Пока мало данных для подсказки.'
+}
+
+function setSummary(sets) {
+  return sets.map(item => setIsCompleted(item) ? `${item.weight} кг × ${item.reps}${item.difficulty === '' ? '' : ` · ${item.difficulty}/10`}` : 'не выполнен').join(' · ')
+}
+
+function exerciseHistory(exercise, sessions, allExercises, allSets, beforeDate) {
+  const completed = sessions.filter(item => item.date < beforeDate).sort((a, b) => b.date.localeCompare(a.date)).flatMap(session => {
+    const candidates = allExercises.filter(item => item.sessionId === session.id)
+    const matched = sameExercise(exercise, candidates)
+    if (!matched) return []
+    const sets = exerciseSets(matched, allSets)
+    const metrics = exerciseMetrics(matched, sets)
+    if (!metrics.completedSets) return []
+    return [{ session, exercise: { ...matched, sessionDate: session.date }, sets, metrics }]
+  })
+  return completed.slice(0, 5).map((item, index) => ({ ...item, status: completed[index + 1] ? progressLabel(item.metrics, completed[index + 1].metrics) : 'нет данных' }))
+}
 
 function WorkoutDatePicker({ date, setDate }) {
   const inputRef = useRef(null)
@@ -70,8 +128,12 @@ function ExerciseModal({ initial, library, muscleGroup, onClose, onSave }) {
   </div>
 }
 
-function WorkoutExerciseCard({ exercise, sets, updateSet, onEdit, onDelete }) {
+function WorkoutExerciseCard({ exercise, sets, previous, previousSets, history, updateSet, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
+  const [insightsOpen, setInsightsOpen] = useState(false)
+  const currentMetrics = exerciseMetrics(exercise, sets)
+  const previousMetrics = previous ? exerciseMetrics(previous, previousSets) : null
+  const hint = nextStepHint(exercise, currentMetrics, previousMetrics)
   return <article className="workout-exercise-card">
     <div className="exercise-card-head"><div><h2>{exercise.name}</h2><p>Цель: {exercise.plannedSets} × {exercise.repMin}–{exercise.repMax} · {displayValue(exercise.plannedWeight)} кг</p>{exercise.planComment && <small>{exercise.planComment}</small>}</div><div className="exercise-card-actions"><button aria-label={`Изменить ${exercise.name}`} onClick={onEdit}><Pencil /></button><button aria-label={`Удалить ${exercise.name}`} onClick={onDelete}><Trash2 /></button></div></div>
     <button className="expand-sets" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />} {expanded ? 'Скрыть подходы' : 'Раскрыть подходы'}<span>{sets.filter(item => item.weight !== '' || item.reps !== '' || item.difficulty !== '' || item.comment).length}/{sets.length}</span></button>
@@ -82,6 +144,20 @@ function WorkoutExerciseCard({ exercise, sets, updateSet, onEdit, onDelete }) {
         <label>Комментарий<textarea value={set.comment} onChange={event => updateSet(set.id, 'comment', event.target.value)} placeholder="Опционально" /></label>
       </fieldset>)}
       <p className="sets-autosave" role="status">Изменения в подходах сохраняются автоматически.</p>
+    </div>}
+    <button className="exercise-insights-toggle" aria-expanded={insightsOpen} onClick={() => setInsightsOpen(value => !value)}>{insightsOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />} {insightsOpen ? 'Скрыть прогресс' : 'Прогресс и история'}</button>
+    {insightsOpen && <div className="exercise-insights">
+      <section className="exercise-insight-section" aria-label="Прошлый результат">
+        <span className="section-label">ПРОШЛЫЙ РАЗ</span>
+        {previous ? <div className="past-exercise-result"><strong>{russianDate(previous.sessionDate)}</strong><span>План: {previous.plannedSets} × {previous.repMin}–{previous.repMax} · {displayValue(previous.plannedWeight)} кг</span><span>Факт: {setSummary(previousSets)}</span><span>Тяжесть: {previousSets.map(item => displayValue(item.difficulty)).join(' / ')}</span></div> : <p className="insight-empty">Нет такой прошлой тренировки.</p>}
+      </section>
+      <section className="exercise-insight-section" aria-label="Прогресс упражнения">
+        <span className="section-label">ПРОГРЕСС</span>
+        <div className="exercise-progress-grid"><span><small>Подходы</small><strong>{currentMetrics.completedSets}/{currentMetrics.totalSets}</strong></span><span><small>Лучший вес</small><strong>{displayValue(currentMetrics.bestWeight)} кг</strong></span><span><small>Повторы</small><strong>{currentMetrics.totalReps || '—'}</strong></span><span><small>Объём</small><strong>{currentMetrics.completedSets ? formatVolume(currentMetrics.volume) : '—'}</strong></span></div>
+        <p className="volume-change">{progressLabel(currentMetrics, previousMetrics)}</p>
+      </section>
+      <section className="exercise-insight-section" aria-label="Подсказка на следующую тренировку"><span className="section-label">ПОДСКАЗКА</span><p className="next-step-hint">{hint}</p></section>
+      <section className="exercise-insight-section" aria-label="История упражнения"><span className="section-label">ИСТОРИЯ</span>{history.length ? <div className="exercise-history-list">{history.map(item => <div key={item.exercise.id}><strong>{russianDate(item.session.date)}</strong><span>{setSummary(item.sets)}</span><small>{formatVolume(item.metrics.volume)} · {item.metrics.maxDifficulty === null ? 'тяжесть —' : `тяжесть ${item.metrics.maxDifficulty}/10`} · {item.status}</small></div>)}</div> : <p className="insight-empty">Пока нет выполненных подходов.</p>}</section>
     </div>}
   </article>
 }
@@ -97,7 +173,7 @@ function PastWorkout({ session, exercises, sets, canCopy, onCopy }) {
   </section>
 }
 
-function workoutReport(session, exercises, sets) {
+function workoutReport(session, exercises, sets, previousExercises = [], previousSets = []) {
   const lines = [
     'Тренировка: Даня', `Дата: ${russianDate(session.date)}`, `Тип: ${WEEK_TYPES[session.weekType]}`,
     `Группа: ${MUSCLE_GROUPS[session.muscleGroup]}`,
@@ -105,11 +181,19 @@ function workoutReport(session, exercises, sets) {
   if (session.wellbeingScore) lines.push(`Самочувствие: ${session.wellbeingScore}/10`)
   if (session.note) lines.push(`Комментарий: ${session.note}`)
   exercises.forEach(exercise => {
+    const currentRows = exerciseSets(exercise, sets)
+    const previous = sameExercise(exercise, previousExercises)
+    const priorRows = previous ? exerciseSets(previous, previousSets) : []
+    const currentMetrics = exerciseMetrics(exercise, currentRows)
+    const previousMetrics = previous ? exerciseMetrics(previous, priorRows) : null
     lines.push('', exercise.name, `Цель: ${exercise.plannedSets} × ${exercise.repMin}–${exercise.repMax} · ${displayValue(exercise.plannedWeight)} кг`, 'Факт:', '')
-    sets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber).forEach(item => {
+    currentRows.forEach(item => {
       const empty = item.weight === '' && item.reps === '' && item.difficulty === '' && !item.comment
       lines.push(`${item.setNumber}. ${empty ? 'не выполнен' : `${displayValue(item.weight)} кг × ${displayValue(item.reps)}${item.difficulty === '' ? '' : ` · тяжесть ${item.difficulty}/10`}`}`)
     })
+    lines.push(`Результат: ${currentMetrics.completedSets}/${currentMetrics.totalSets} подходов · ${currentMetrics.completedSets ? formatVolume(currentMetrics.volume) : 'нет данных'}`)
+    if (previous) lines.push(`Прошлый результат: ${russianDate(previous.sessionDate)} · ${priorRows.length ? setSummary(priorRows) : 'нет подходов'}`)
+    lines.push(`Изменение объёма: ${progressLabel(currentMetrics, previousMetrics)}`, `Следующий раз: ${nextStepHint(exercise, currentMetrics, previousMetrics)}`)
     if (exercise.planComment) lines.push('', `Комментарий: ${exercise.planComment}`)
     const setComments = sets.filter(item => item.workoutExerciseId === exercise.id && item.comment).map(item => `${item.setNumber}-й подход: ${item.comment}`)
     if (setComments.length) lines.push('', `Комментарии к подходам: ${setComments.join('; ')}`)
@@ -137,7 +221,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
   }, [date, currentSession?.id])
   const exercises = currentSession ? data.workoutExercises.filter(item => item.sessionId === currentSession.id).sort((a, b) => a.orderIndex - b.orderIndex) : []
   const previousSession = data.workoutSessions.filter(item => item.userId === viewer.id && item.date < date && item.weekType === weekType && item.muscleGroup === muscleGroup).sort((a, b) => b.date.localeCompare(a.date))[0] || null
-  const previousExercises = previousSession ? data.workoutExercises.filter(item => item.sessionId === previousSession.id).sort((a, b) => a.orderIndex - b.orderIndex) : []
+  const previousExercises = previousSession ? data.workoutExercises.filter(item => item.sessionId === previousSession.id).sort((a, b) => a.orderIndex - b.orderIndex).map(item => ({ ...item, sessionDate: previousSession.date })) : []
   const wellbeingNumber = Number(wellbeingScore); const wellbeingInvalid = wellbeingScore !== '' && (wellbeingNumber < 1 || wellbeingNumber > 10)
   const sessionDetails = base => ({ ...base, weekType, muscleGroup, wellbeingScore: wellbeingInvalid ? null : numberOrNull(wellbeingScore), note: note.trim(), updatedAt: stamp() })
   const ensureSession = current => {
@@ -195,7 +279,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
   }
   const copyReport = async () => {
     if (!currentSession) return
-    try { await copyText(workoutReport(currentSession, exercises, data.workoutSets)); notify('Отчёт скопирован') } catch { notify('Не удалось скопировать отчёт') }
+    try { await copyText(workoutReport(currentSession, exercises, data.workoutSets, previousExercises, data.workoutSets)); notify('Отчёт скопирован') } catch { notify('Не удалось скопировать отчёт') }
   }
   const noWorkouts = !data.workoutSessions.some(item => item.userId === viewer.id)
   return <>
@@ -211,7 +295,10 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
     </section>
     <PastWorkout session={previousSession} exercises={previousExercises} sets={data.workoutSets} canCopy={!exercises.length && previousExercises.length > 0} onCopy={copyPrevious} />
     <div className="workout-list-head"><div><span className="section-label">ПЛАН И ФАКТ</span><h2>Упражнения</h2></div><span>{exercises.length}</span></div>
-    {exercises.length ? <div className="workout-exercise-list">{exercises.map(exercise => <WorkoutExerciseCard key={exercise.id} exercise={exercise} sets={data.workoutSets.filter(item => item.workoutExerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)} updateSet={updateSet} onEdit={() => setModal({ exercise })} onDelete={() => removeExercise(exercise)} />)}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавьте упражнение вручную или перенесите прошлый план.</span></div>}
+    {exercises.length ? <div className="workout-exercise-list">{exercises.map(exercise => {
+      const previous = sameExercise(exercise, previousExercises)
+      return <WorkoutExerciseCard key={exercise.id} exercise={exercise} sets={exerciseSets(exercise, data.workoutSets)} previous={previous} previousSets={previous ? exerciseSets(previous, data.workoutSets) : []} history={exerciseHistory(exercise, data.workoutSessions.filter(item => item.userId === viewer.id), data.workoutExercises, data.workoutSets, date)} updateSet={updateSet} onEdit={() => setModal({ exercise })} onDelete={() => removeExercise(exercise)} />
+    })}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавьте упражнение вручную или перенесите прошлый план.</span></div>}
     <div className="workout-primary-actions"><button className="primary" onClick={() => setModal({})}><Plus aria-hidden="true" />Упражнение</button><button className="secondary" disabled={!currentSession} onClick={copyReport}><Copy aria-hidden="true" />Скопировать отчёт</button></div>
     {modal && <ExerciseModal initial={modal.exercise || null} library={data.exerciseLibrary} muscleGroup={muscleGroup} onClose={() => setModal(null)} onSave={saveExercise} />}
   </>
