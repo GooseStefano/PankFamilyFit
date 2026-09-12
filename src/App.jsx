@@ -30,7 +30,7 @@ function Toast({ message }) {
   </div>
 }
 
-function Login({ onLogin, offline }) {
+function Login({ onLogin, offline, hasOfflineSnapshot }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,7 +47,7 @@ function Login({ onLogin, offline }) {
     <div className="brand-mark"><Apple size={28} aria-hidden="true" /></div>
     <p className="eyebrow">PANK FAMILY FIT</p><h1>Ваш дневник питания</h1>
     <p className="muted">Спокойно следим за КБЖУ — без лишнего шума.</p>
-    {offline && <div className="login-offline" role="status"><strong>Оффлайн</strong><span>Для входа через Supabase нужен интернет. Ранее открытый сеанс сохраняет доступ к локальному снимку.</span></div>}
+    {offline && <div className="login-offline" role="status"><strong>Оффлайн</strong><span>{hasOfflineSnapshot ? 'Для входа через Supabase нужен интернет. Ранее открытый сеанс сохраняет доступ к локальному снимку.' : 'Нет сохранённого снимка. Откройте приложение онлайн хотя бы один раз.'}</span></div>}
     <form onSubmit={submit}>
       <label htmlFor="pin">Введите PIN</label>
       <input id="pin" autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength="5" value={pin}
@@ -624,21 +624,21 @@ function BottomNav({ viewer, page, setPage }) {
 
 export default function App() {
   const [viewer, setViewer] = useState(() => {
-    const session = storage.session?.()
+    const session = storage.session?.() || (!navigator.onLine ? storage.offlineSession?.() : null)
     return session ? (USERS.find(user => user.id === session.id) || { id: session.id, name: session.name, role: session.role }) : null
   })
   const [profile, setProfile] = useState(viewer || USERS[0]); const [page, setPage] = useState('today'); const [date, setDate] = useState(todayISO())
   const [toast, setToast] = useState(''); const toastTimer = useRef(null)
   const notify = message => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(''), 2600) }
-  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, isOffline, reload, hasLocalMigration, migrateLocalData, dismissLocalMigration } = useStore({ onError: notify })
+  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, isOffline, hasOfflineSnapshot, reload, hasLocalMigration, migrateLocalData, dismissLocalMigration } = useStore({ onError: notify })
   useEffect(() => () => clearTimeout(toastTimer.current), [])
-  if (!viewer) return <Login offline={isOffline} onLogin={user => { setViewer(user); setProfile(user); reload() }} />
+  if (!viewer) return <Login offline={isOffline} hasOfflineSnapshot={hasOfflineSnapshot} onLogin={user => { setViewer(user); setProfile(user); reload() }} />
   const gotoDate = value => { setDate(value); setPage('today') }
   const logout = () => { storage.logout(); setPage('today'); setDate(todayISO()); setViewer(null) }
   if (loading) return <main className="loading-shell" role="status" aria-live="polite"><div className="brand-mark"><Apple aria-hidden="true" /></div><strong>Загружаем семейный дневник…</strong><span>Проверяем синхронизацию данных.</span></main>
   return <div className="desktop-bg"><main className="app-shell"><div className="scroll-area">
     <div className={`storage-status ${mode} ${syncState}`} role="status">{status}</div>
-    {isOffline && <section className="offline-notice" role="status" aria-live="polite"><strong>Показан последний локальный снимок</strong><span>Интернет недоступен. Просмотр работает, а изменения временно заблокированы — синхронизация не обещается.</span><button className="secondary" onClick={reload}>Проверить соединение</button></section>}
+    {isOffline && <section className="offline-notice" role="status" aria-live="polite"><strong>{hasOfflineSnapshot ? 'Показан последний локальный снимок' : 'Нет сохранённого снимка'}</strong><span>{hasOfflineSnapshot ? 'Интернет недоступен. Просмотр работает, а изменения временно заблокированы — синхронизация не обещается.' : 'Откройте приложение онлайн хотя бы один раз, чтобы сохранить данные для офлайн-просмотра.'}</span><button className="secondary" onClick={reload}>Проверить соединение</button></section>}
     {storageError && <section className="sync-error" role="alert"><strong>{errorTitle}</strong><span>{storageError}</span><button className="secondary" onClick={reload}>Повторить</button></section>}
     <fieldset className="offline-readonly" disabled={isOffline} aria-label={isOffline ? 'Данные доступны только для просмотра' : undefined}>
       {page === 'today' && <Today viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} date={date} setDate={setDate} notify={notify} />}

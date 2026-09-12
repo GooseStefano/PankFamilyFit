@@ -21,6 +21,12 @@ const snake = value => value.replace(/[A-Z]/g, letter => `_${letter.toLowerCase(
 const keys = value => Object.fromEntries(Object.entries(value).map(([key, item]) => [snake(key), item]))
 const withDates = value => Object.fromEntries(Object.entries(value).map(([key, item]) => [camel(key), item]))
 const setToken = token => { activeToken = token || null }
+const savedSession = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY))
+    return saved?.mode === 'supabase' && saved.token ? saved : null
+  } catch { return null }
+}
 
 const userId = value => ({
   '00000000-0000-0000-0000-000000000001': 'danya',
@@ -127,12 +133,11 @@ export const supabaseService = {
   },
   dismissLocalMigration() { localStorage.setItem(migrationMarker, 'done') },
   session() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(SESSION_KEY))
-      if (saved?.mode === 'supabase' && saved.token && Number(saved.expiresAt || 0) > Date.now()) { marker = saved; setToken(saved.token); return saved }
-    } catch { /* ignored */ }
+    const saved = savedSession()
+    if (saved && Number(saved.expiresAt || 0) > Date.now()) { marker = saved; setToken(saved.token); return saved }
     return null
   },
+  offlineSession() { return savedSession() },
   async login(pin) {
     if (!configured) throw new Error('Supabase не настроен.')
     const { data, error } = await client.functions.invoke('pin-login', { body: { pin } })

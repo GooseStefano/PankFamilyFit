@@ -1,5 +1,5 @@
-const CACHE_NAME = 'pankfit-shell-v0.11.0'
-const APP_SHELL = [
+const CACHE_NAME = 'pankfit-shell-v0.11.1'
+const CORE_SHELL = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
@@ -9,8 +9,29 @@ const APP_SHELL = [
   '/icons/pankfit-maskable-512.png',
 ]
 
+const ownUrl = value => {
+  const url = new URL(value, self.location.origin)
+  return url.origin === self.location.origin ? `${url.pathname}${url.search}` : null
+}
+
+const cacheUrls = async urls => {
+  const cache = await caches.open(CACHE_NAME)
+  await Promise.all(urls.filter(Boolean).map(url => cache.add(url).catch(() => undefined)))
+}
+
+const cacheProductionShell = async () => {
+  const cache = await caches.open(CACHE_NAME)
+  await cache.addAll(CORE_SHELL)
+  const index = await cache.match('/index.html')
+  const html = await index?.text()
+  const assets = [...(html || '').matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map(([, value]) => ownUrl(value))
+    .filter(url => url?.startsWith('/assets/'))
+  await cacheUrls(assets)
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)))
+  event.waitUntil(cacheProductionShell())
   self.skipWaiting()
 })
 
@@ -20,6 +41,10 @@ self.addEventListener('activate', event => {
       .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
+})
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'CACHE_ASSETS') event.waitUntil(cacheUrls(event.data.urls || []))
 })
 
 self.addEventListener('fetch', event => {
