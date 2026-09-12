@@ -1,4 +1,4 @@
-# Pank Family Fit v0.11.1
+# Pank Family Fit v0.12.0
 
 Мобильный дневник КБЖУ для Дани и Вики. Реализован как React/Vite-приложение с Supabase-синхронизацией и безопасным localStorage fallback; SQL-схема находится в `supabase/schema.sql`.
 
@@ -8,6 +8,26 @@
 npm install
 npm run dev
 ```
+
+## Production и деплой на Vercel
+
+Production: [pank-family-fit.vercel.app](https://pank-family-fit.vercel.app)
+
+Vercel подключён к репозиторию: каждый production deploy собирает приложение командой `npm run build` и публикует содержимое `dist`. В настройках проекта Vercel → Environment Variables для Production должны быть заданы только публичные Vite-переменные:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Не добавляйте в Vercel `service_role` key, `PIN_JWT_SECRET` или пароль базы данных. Эти секреты принадлежат только Supabase: первые два хранятся в Function Secrets для Edge Function `pin-login`, а database password не нужен ни браузеру, ни Vercel-сборке.
+
+### Чеклист production v0.12.0
+
+- [ ] Открывается [production URL](https://pank-family-fit.vercel.app) по HTTPS
+- [ ] PIN Дани и PIN Вики выполняют вход с корректными ролями
+- [ ] После записи на одном устройстве Supabase-синхронизация видна после обновления на другом
+- [ ] PWA устанавливается из Safari на iPhone и Chrome на Android, запускается без адресной строки
+- [ ] После первого успешного онлайн-запуска офлайн-перезапуск открывает последний снимок, показывает «Оффлайн» и не даёт записывать данные
+- [ ] В консоли нет неожиданных 401/403 и ошибок service worker
 
 ## Установка как PWA
 
