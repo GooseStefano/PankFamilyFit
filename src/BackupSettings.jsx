@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react'
 import { DatabaseBackup, Download, Upload } from 'lucide-react'
 
-const DATA_KEYS = ['foods', 'goals', 'entries', 'notes', 'weightEntries', 'recipeIngredients', 'workoutSessions', 'exerciseLibrary', 'workoutExercises', 'workoutSets', 'messagePhrases', 'dailyPhraseShows', 'directMessages']
+const DATA_KEYS = ['foods', 'goals', 'weightGoals', 'entries', 'notes', 'weightEntries', 'recipeIngredients', 'workoutSessions', 'exerciseLibrary', 'workoutExercises', 'workoutSets', 'messagePhrases', 'dailyPhraseShows', 'directMessages']
+const REQUIRED_DATA_KEYS = DATA_KEYS.filter(key => key !== 'weightGoals')
 const isPlainObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-const validBackup = backup => backup?.format === 'pank-family-fit-backup' && isPlainObject(backup.data) && DATA_KEYS.every(key => key === 'notes' ? isPlainObject(backup.data.notes) : Array.isArray(backup.data[key]))
-const cleanedData = data => Object.fromEntries(DATA_KEYS.map(key => [key, key === 'notes' ? { ...data.notes } : [...data[key]]]))
+const validBackup = backup => backup?.format === 'pank-family-fit-backup' && isPlainObject(backup.data) && REQUIRED_DATA_KEYS.every(key => key === 'notes' ? isPlainObject(backup.data.notes) : Array.isArray(backup.data[key])) && (backup.data.weightGoals === undefined || Array.isArray(backup.data.weightGoals))
+const cleanedData = data => Object.fromEntries(DATA_KEYS.map(key => [key, key === 'notes' ? { ...(data.notes || {}) } : [...(data[key] || [])]]))
 
 export default function BackupSettings({ data, update, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
   const inputRef = useRef(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const download = () => {
-    const backup = { format: 'pank-family-fit-backup', version: '0.8.0', exportedAt: new Date().toISOString(), data: cleanedData(data) }
+    const backup = { format: 'pank-family-fit-backup', version: '0.13.0', exportedAt: new Date().toISOString(), data: cleanedData(data) }
     const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a'); link.href = url; link.download = `pank-family-fit-backup-${backup.exportedAt.slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url)
     notify('Резервная копия скачана')

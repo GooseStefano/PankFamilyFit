@@ -68,6 +68,7 @@ const prepareLocalForSupabase = source => {
     goals: source.goals.map(item => ({ ...item, id: id('goal', item.id) })),
     entries: source.entries.map(item => ({ ...item, id: id('entry', item.id), foodItemId: item.foodItemId ? id('food', item.foodItemId) : null })),
     weightEntries: source.weightEntries.map(item => ({ ...item, id: id('weight', item.id) })),
+    weightGoals: source.weightGoals.map(item => ({ ...item, id: id('weightGoal', item.id) })),
     recipeIngredients: source.recipeIngredients.map(item => ({ ...item, id: id('ingredient', item.id), recipeFoodItemId: item.recipeFoodItemId ? id('food', item.recipeFoodItemId) : null, ingredientFoodItemId: item.ingredientFoodItemId ? id('food', item.ingredientFoodItemId) : null })),
     workoutSessions, exerciseLibrary, workoutExercises,
     workoutSets: source.workoutSets.map(item => ({ ...item, id: id('set', item.id), workoutExerciseId: id('workoutExercise', item.workoutExerciseId) })),
@@ -83,6 +84,7 @@ const mergeLocal = (remote, local) => ({
   entries: mergeBy(remote.entries, local.entries, item => item.id),
   notes: { ...local.notes, ...remote.notes },
   weightEntries: mergeBy(remote.weightEntries, local.weightEntries, item => `${item.userId}:${item.date}`),
+  weightGoals: mergeBy(remote.weightGoals, local.weightGoals, item => item.userId),
   recipeIngredients: mergeBy(remote.recipeIngredients, local.recipeIngredients, item => item.id),
   workoutSessions: mergeBy(remote.workoutSessions, local.workoutSessions, item => `${item.userId}:${item.date}`),
   exerciseLibrary: mergeBy(remote.exerciseLibrary, local.exerciseLibrary, item => String(item.name).toLowerCase()),
@@ -95,7 +97,7 @@ const mergeLocal = (remote, local) => ({
 
 const tables = [
   ['nutrition_goals', 'goals', { userId: dbUserId }, false], ['food_items', 'foods', { createdBy: dbUserId }, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
-  ['weight_entries', 'weightEntries', { userId: dbUserId }, true], ['recipe_ingredients', 'recipeIngredients', {}, false],
+  ['weight_entries', 'weightEntries', { userId: dbUserId }, true], ['weight_goals', 'weightGoals', { userId: dbUserId }, true], ['recipe_ingredients', 'recipeIngredients', {}, false],
   ['workout_sessions', 'workoutSessions', { userId: dbUserId }, true], ['exercise_library', 'exerciseLibrary', {}, true],
   ['workout_exercises', 'workoutExercises', {}, true], ['workout_sets', 'workoutSets', {}, true],
   ['message_phrases', 'messagePhrases', { createdBy: dbUserId, targetUserId: dbUserId }, true],

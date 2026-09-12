@@ -217,6 +217,19 @@ button { touch-action: manipulation; }
   border-radius: var(--radius);
   background: var(--surface);
 }
+.weight-goal-card { padding: 18px; margin-bottom: 14px; border: 1px solid #66783c; border-radius: var(--radius); background: linear-gradient(135deg,var(--accent-dark),var(--surface) 78%); }
+.weight-goal-card h2 { font-size: 20px; }
+.weight-goal-card > p { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.weight-goal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.weight-goal-head > span { flex: none; padding: 5px 8px; border-radius: 9px; background: var(--surface2); color: var(--accent); font-size: 10px; font-weight: 800; }
+.weight-goal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0 12px; }
+.weight-goal-grid > div { padding: 11px; border-radius: 13px; background: rgba(42,42,42,.58); display: flex; flex-direction: column; gap: 4px; }
+.weight-goal-grid span,.weight-goal-footer { color: var(--muted); font-size: 10px; }
+.weight-goal-grid strong { font-size: 16px; }
+.goal-progress { height: 7px; overflow: hidden; border-radius: 999px; background: #4a4a46; }
+.goal-progress i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.weight-goal-footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.weight-goal-settings .form-hint { margin: 14px 0; line-height: 1.5; }
 .latest-weight { display: flex; flex-direction: column; align-items: center; padding: 8px 0 18px; text-align: center; }
 .latest-weight > strong { font-size: 42px; line-height: 1.1; letter-spacing: -.04em; }
 .latest-weight > strong small { color: var(--muted); font-size: 16px; letter-spacing: 0; }
@@ -266,7 +279,7 @@ button { touch-action: manipulation; }
 .replace-hint { padding: 11px 12px; border: 1px solid #66783c; border-radius: 12px; background: var(--accent-dark); color: var(--muted); font-size: 11px; line-height: 1.45; }
 
 @media (max-width: 374px) {
-  .weight-overview,.weight-chart-card,.weight-list-card { padding: 14px; }
+  .weight-overview,.weight-goal-card,.weight-chart-card,.weight-list-card { padding: 14px; }
   .latest-weight > strong { font-size: 38px; }
   .weight-entry-actions { gap: 4px; }
 }

@@ -6,6 +6,11 @@ export const USERS = [
 export const CATEGORIES = ['Все', 'Мясо', 'Рыба', 'Яйца', 'Молочка', 'Крупы', 'Макароны/хлеб', 'Овощи', 'Фрукты', 'Сладкое', 'Соусы', 'Масла', 'Напитки', 'Готовое', 'Другое']
 export const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' }
 export const UNIT_LABELS = { g: 'г', ml: 'мл', piece: 'штука', portion: 'порция', glass: 'стакан', tsp: 'ч. ложка', tbsp: 'ст. ложка' }
+export const WEIGHT_PACES = {
+  gentle: { label: 'Мягко', weeklyKg: .25 },
+  normal: { label: 'Нормально', weeklyKg: .5 },
+  aggressive: { label: 'Агрессивно', weeklyKg: .75 },
+}
 
 export const INITIAL_FOODS = [
   { id: 'egg', name: 'Яйцо куриное', type: 'product', category: 'Яйца', baseUnit: 'g', baseAmount: 100, calories: 157, protein: 12.7, fat: 11.5, carbs: 0.7, favorite: true, archived: false, usageCount: 12, measures: [{ unit: 'piece', label: '1 штука', amountInBase: 55 }] },
@@ -136,6 +141,34 @@ export function getWeightStats(entries, userId, referenceDate = todayISO()) {
   const weekRecords = records.filter(entry => entry.date >= weekStart && entry.date <= weekEnd)
   const weekAverage = weekRecords.length ? weekRecords.reduce((total, entry) => total + Number(entry.weight), 0) / weekRecords.length : null
   return { records, latest, weekAverage, weekCount: weekRecords.length, weekChange: changeFrom(7), monthChange: changeFrom(30) }
+}
+
+export const getWeightGoal = (goals, userId) => (goals || []).find(goal => goal.userId === userId) || null
+
+export function getWeightGoalProgress(goal, entries, userId, referenceDate = todayISO()) {
+  if (!goal) return null
+  const stats = getWeightStats(entries, userId, referenceDate)
+  const current = stats.latest ? Number(stats.latest.weight) : null
+  const pace = WEIGHT_PACES[goal.pace] || WEIGHT_PACES.normal
+  if (current === null) return { goal, pace, current: null, remaining: null, percent: null, weeks: null, statusKey: 'not-started', assessment: 'Добавьте запись веса, чтобы увидеть ориентир прогресса.' }
+  const target = Number(goal.targetWeight)
+  const sinceStart = stats.records.filter(entry => entry.date >= goal.startDate)
+  const baseline = sinceStart[0] || stats.latest
+  const startWeight = Number(baseline.weight)
+  const direction = Math.sign(startWeight - target) || 1
+  const total = Math.abs(startWeight - target)
+  const completed = direction * (startWeight - current)
+  const percent = total > 0 ? Math.max(0, Math.min(100, completed / total * 100)) : 100
+  const remaining = Math.abs(current - target)
+  const weeks = remaining / pace.weeklyKg
+  const elapsedDays = Math.max(0, Math.round((new Date(`${stats.latest.date}T12:00:00`) - new Date(`${goal.startDate}T12:00:00`)) / 86400000))
+  const expected = elapsedDays / 7 * pace.weeklyKg
+  const status = sinceStart.length < 2 || elapsedDays < 7 ? { statusKey: 'not-enough', assessment: 'Пока мало измерений, чтобы сравнить темп с ориентиром.' }
+    : completed < .2 ? { statusKey: 'stable', assessment: 'Вес пока почти не меняется. Понаблюдайте ещё несколько измерений.' }
+      : Math.abs(completed - expected) <= Math.max(.2, expected * .35) ? { statusKey: 'close', assessment: 'Темп выглядит близким к выбранному ориентиру.' }
+        : completed < expected ? { statusKey: 'slower', assessment: 'Темп сейчас медленнее выбранного ориентира.' }
+          : { statusKey: 'faster', assessment: 'Темп сейчас быстрее выбранного ориентира.' }
+  return { goal, pace, current, target, startWeight, remaining, percent, weeks, ...status }
 }
 
 export function filterWeightPeriod(entries, period, referenceDate = todayISO()) {

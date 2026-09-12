@@ -5,7 +5,7 @@ import {
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
   Scale, Dumbbell,
 } from 'lucide-react'
-import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getNutritionAnalytics, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
+import { CATEGORIES, MEALS, UNIT_LABELS, USERS, WEIGHT_PACES, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getNutritionAnalytics, getWeekReport, getWeekStart, getWeightGoal, getWeightGoalProgress, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 import { storage } from './services/storage'
 import WorkoutPage from './WorkoutPage'
@@ -435,14 +435,18 @@ function AnalyticsPage({ viewer, profile, setProfile, data, embedded = false }) 
   const weightStats = getWeightStats(data.weightEntries, profile.id)
   const trend = weightTrend(weightStats)
   const periodWeights = filterWeightPeriod(weightStats.records, period)
+  const weightGoal = getWeightGoal(data.weightGoals, profile.id)
+  const goalProgress = getWeightGoalProgress(weightGoal, data.weightEntries, profile.id)
   const closeToGoal = report.plan.calories > 0 && Math.abs(report.calorieDifference / report.plan.calories) <= .05
   const hasEnough = report.daysWithEntries >= 3 && weightStats.records.length >= 2 && trend.key !== 'unknown'
   const insight = !hasEnough ? 'Пока мало данных для вывода. Добавьте записи за несколько дней.' : trend.key === 'down' && report.calorieDifference < 0 ? 'Вес снижается, калории в среднем ниже цели.' : trend.key === 'stable' && closeToGoal ? 'Вес стоит, а средние калории близко к цели.' : trend.key === 'up' && report.calorieDifference > 0 ? 'Вес растёт, средние калории выше цели.' : 'По выбранному периоду нет однозначной связи между весом и питанием.'
+  const planLink = !weightGoal ? 'Цель веса пока не задана.' : report.daysWithEntries < 3 || periodWeights.length < 2 ? 'Пока мало данных для сравнения дефицита и динамики веса.' : goalProgress?.statusKey === 'stable' ? 'Вес стоит: по этому периоду заметной динамики пока нет.' : goalProgress?.statusKey === 'close' ? 'Темп близок к плану по доступным измерениям.' : goalProgress?.assessment || 'Пока мало данных для вывода.'
   return <>{!embedded && <PageHead eyebrow="АНАЛИТИКА" title="Отчёты" subtitle={`КБЖУ и вес · ${profile.name}`} />}
     {viewer.role === 'admin' && <div className="profile-switch compact analytics-profile" aria-label="Профиль отчёта">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}
     <div className="analytics-periods" role="tablist" aria-label="Период отчёта">{[['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней']].map(([key, label]) => <button key={key} role="tab" aria-selected={period === key} className={period === key ? 'active' : ''} onClick={() => setPeriod(key)}>{label}</button>)}</div>
-    {report.daysWithEntries < 2 ? <section className="analytics-empty"><CalendarRange aria-hidden="true" /><strong>Пока мало данных для анализа.</strong><span>Добавьте записи за несколько дней.</span></section> : <section className="analytics-card" aria-labelledby="nutrition-report-title"><div className="analytics-head"><div><span className="section-label">КБЖУ</span><h2 id="nutrition-report-title">За {period} дней</h2></div><span>{report.daysWithEntries}/{period} дней с едой</span></div><div className="analytics-summary"><div><span>Средние калории</span><strong>{round(report.average.calories)} <small>ккал</small></strong></div><div><span>Дефицит / профицит</span><strong className={report.calorieDifference < 0 ? 'weight-down' : report.calorieDifference > 0 ? 'weight-up' : ''}>{signed(round(report.calorieDifference))} <small>ккал</small></strong></div></div><div className="analytics-macros">{metricRows.slice(1).map(([key, label]) => <div key={key}><span>{label}</span><strong>{round(report.average[key])} г</strong></div>)}</div><div className="analytics-days"><span>С записями: <strong>{report.daysWithEntries}</strong></span><span>Без записей: <strong>{report.daysWithoutEntries}</strong></span></div><NutritionChart days={report.days} /></section>}
+    {report.daysWithEntries < 2 ? <section className="analytics-empty"><CalendarRange aria-hidden="true" /><strong>Пока мало данных для анализа.</strong><span>Добавьте записи за несколько дней.</span></section> : <section className="analytics-card" aria-labelledby="nutrition-report-title"><div className="analytics-head"><div><span className="section-label">КБЖУ</span><h2 id="nutrition-report-title">За {period} дней</h2></div><span>{report.daysWithEntries}/{period} дней с едой</span></div><div className="analytics-summary"><div><span>Средние калории</span><strong>{round(report.average.calories)} <small>ккал</small></strong></div><div><span>Среднее отклонение</span><strong className={report.calorieDifference < 0 ? 'weight-down' : report.calorieDifference > 0 ? 'weight-up' : ''}>{signed(round(report.calorieDifference / report.daysWithEntries))} <small>ккал/день</small></strong></div></div><div className="analytics-macros">{metricRows.slice(1).map(([key, label]) => <div key={key}><span>{label}</span><strong>{round(report.average[key])} г</strong></div>)}</div><div className="analytics-days"><span>С записями: <strong>{report.daysWithEntries}</strong></span><span>Без записей: <strong>{report.daysWithoutEntries}</strong></span></div><NutritionChart days={report.days} /></section>}
       <section className="analytics-card" aria-labelledby="weight-report-title"><div className="analytics-head"><div><span className="section-label">ВЕС</span><h2 id="weight-report-title">Динамика</h2></div><span className={`trend ${trend.key}`}>{trend.label}</span></div>{weightStats.latest ? <><div className="analytics-weight-grid"><div><span>Последний вес</span><strong>{weightStats.latest.weight} <small>кг</small></strong></div><div><span>За 7 дней</span><ChangeValue change={weightStats.weekChange} /></div><div><span>За 30 дней</span><ChangeValue change={weightStats.monthChange} /></div><div><span>Среднее недели</span>{weightStats.weekAverage === null ? <span className="insufficient">Недостаточно данных</span> : <strong>{round(weightStats.weekAverage)} <small>кг</small></strong>}</div></div><WeightChart entries={periodWeights} /></> : <div className="analytics-chart-empty">Пока мало данных для анализа. Добавьте записи за несколько дней.</div>}</section>
+      <section className="insight-card analytics-plan-link" aria-label="Связь плана веса и данных"><span className="section-label">ПЛАН ВЕСА</span><p>{planLink}</p></section>
       <section className="insight-card" aria-labelledby="insight-title"><span className="section-label">ЧТО ВИДНО ПО ПЕРИОДУ</span><h2 id="insight-title">Спокойный вывод</h2><p>{insight}</p></section>
   </>
 }
@@ -555,11 +559,19 @@ function weightEntryWord(count) {
   return 'записей'
 }
 
+function WeightGoalCard({ progress }) {
+  if (!progress) return <section className="weight-goal-card"><span className="section-label">ЦЕЛЬ ВЕСА</span><h2>Цель пока не задана</h2><p>Её можно настроить в разделе «Настройки».</p></section>
+  if (progress.current === null) return <section className="weight-goal-card"><span className="section-label">ЦЕЛЬ ВЕСА</span><h2>Цель: {round(progress.goal.targetWeight)} кг</h2><p>{progress.assessment}</p></section>
+  const weeks = Math.max(1, Math.ceil(progress.weeks))
+  return <section className="weight-goal-card" aria-label="Прогресс к цели веса"><div className="weight-goal-head"><div><span className="section-label">ЦЕЛЬ ВЕСА</span><h2>{round(progress.goal.targetWeight)} кг</h2></div><span>{progress.pace.label}</span></div><div className="weight-goal-grid"><div><span>Сейчас</span><strong>{round(progress.current)} кг</strong></div><div><span>Осталось</span><strong>{round(progress.remaining)} кг</strong></div></div><div className="goal-progress" role="progressbar" aria-label="Примерный прогресс к цели веса" aria-valuemin="0" aria-valuemax="100" aria-valuenow={round(progress.percent)}><i style={{ width: `${progress.percent}%` }} /></div><div className="weight-goal-footer"><span>Примерный прогресс: {round(progress.percent)}%</span><span>Ориентир: ~{weeks} нед.</span></div><p>{progress.assessment}</p></section>
+}
+
 function WeightPage({ viewer, profile, setProfile, data, update, notify }) {
   const [period, setPeriod] = useState('30')
   const [modal, setModal] = useState(null)
   const stats = getWeightStats(data.weightEntries, profile.id)
   const chartEntries = filterWeightPeriod(stats.records, period)
+  const goalProgress = getWeightGoalProgress(getWeightGoal(data.weightGoals, profile.id), data.weightEntries, profile.id)
   const save = entry => {
     const duplicate = data.weightEntries.find(item => item.userId === profile.id && item.date === entry.date && item.id !== entry.id)
     if (duplicate && !window.confirm(`На ${new Date(`${entry.date}T12:00:00`).toLocaleDateString('ru-RU')} уже есть запись ${duplicate.weight} кг. Заменить её?`)) return
@@ -584,6 +596,7 @@ function WeightPage({ viewer, profile, setProfile, data, update, notify }) {
         <div><span>Среднее недели</span>{stats.weekAverage === null ? <span className="insufficient">Недостаточно данных</span> : <><strong>{round(stats.weekAverage)} кг</strong><small>{stats.weekCount} {weightEntryWord(stats.weekCount)}</small></>}</div>
       </div>
     </section> : <div className="weight-empty"><Scale aria-hidden="true" /><h2>Записей веса пока нет</h2><p>Добавьте первое измерение, чтобы начать следить за динамикой.</p></div>}
+    <WeightGoalCard progress={goalProgress} />
     <button className="primary wide add-weight-button" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить вес</button>
     <section className="weight-chart-card" aria-labelledby="weight-chart-title">
       <div className="weight-section-head"><div><span className="section-label">ДИНАМИКА</span><h2 id="weight-chart-title">График</h2></div><span>{chartEntries.length} {weightEntryWord(chartEntries.length)}</span></div>
@@ -601,6 +614,26 @@ function WeightPage({ viewer, profile, setProfile, data, update, notify }) {
   </>
 }
 
+function WeightGoalSettings({ viewer, data, update, notify }) {
+  const initialProfileId = viewer.role === 'admin' ? 'danya' : viewer.id
+  const [profileId, setProfileId] = useState(initialProfileId)
+  const stats = getWeightStats(data.weightEntries, profileId)
+  const existing = getWeightGoal(data.weightGoals, profileId)
+  const [form, setForm] = useState(() => ({ targetWeight: existing?.targetWeight ?? '', pace: existing?.pace || 'normal', startDate: existing?.startDate || todayISO() }))
+  const select = id => { setProfileId(id); const goal = getWeightGoal(data.weightGoals, id); setForm({ targetWeight: goal?.targetWeight ?? '', pace: goal?.pace || 'normal', startDate: goal?.startDate || todayISO() }) }
+  const target = Number(form.targetWeight)
+  const current = stats.latest ? Number(stats.latest.weight) : null
+  const invalid = !current || !Number.isFinite(target) || target < 20 || target >= current || !form.startDate
+  const save = event => {
+    event.preventDefault()
+    if (invalid) return
+    const now = new Date().toISOString()
+    update(state => ({ ...state, weightGoals: [...state.weightGoals.filter(goal => goal.userId !== profileId), { id: existing?.id || crypto.randomUUID(), userId: profileId, targetWeight: target, pace: form.pace, startDate: form.startDate, createdAt: existing?.createdAt || now, updatedAt: now }] }))
+    notify('Цель веса сохранена')
+  }
+  return <section className="settings-card weight-goal-settings"><div className="card-title"><div><span className="section-label">ЦЕЛЬ ВЕСА</span><h2>План снижения веса</h2></div><Scale aria-hidden="true" /></div>{viewer.role === 'admin' && <div className="profile-switch compact">{USERS.map(user => <button key={user.id} className={profileId === user.id ? 'active' : ''} onClick={() => select(user.id)}>{user.name}</button>)}</div>}<p className="form-hint">Текущий вес: {current === null ? 'нет записи — сначала добавьте измерение' : `${round(current)} кг · ${prettyDate(stats.latest.date)}`}</p><form onSubmit={save}><label>Целевой вес, кг<input type="number" inputMode="decimal" min="20" max="500" step="0.1" value={form.targetWeight} onChange={event => setForm({ ...form, targetWeight: event.target.value })} placeholder="Например, 75" aria-invalid={Boolean(form.targetWeight) && invalid} aria-describedby="weight-goal-error" /></label><div id="weight-goal-error" className="field-error" role="alert">{!current ? 'Добавьте текущий вес, затем укажите цель.' : form.targetWeight && invalid ? 'Для плана снижения цель должна быть меньше текущего веса и не ниже 20 кг.' : ''}</div><label>Желаемый темп<select value={form.pace} onChange={event => setForm({ ...form, pace: event.target.value })}>{Object.entries(WEIGHT_PACES).map(([key, pace]) => <option key={key} value={key}>{pace.label}</option>)}</select></label><label>Дата начала<input type="date" max={todayISO()} value={form.startDate} onChange={event => setForm({ ...form, startDate: event.target.value })} /></label><button className="primary wide" disabled={invalid}>Сохранить цель веса</button></form><p className="form-hint">Это ориентир для наблюдения за динамикой, а не медицинское назначение.</p></section>
+}
+
 function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
   const [profileId, setProfileId] = useState('danya'); const latest = getGoal(data.goals, profileId, todayISO()); const [form, setForm] = useState({ ...latest, startDate: todayISO() })
   const select = id => { setProfileId(id); const goal = getGoal(data.goals, id, todayISO()); setForm({ ...goal, startDate: todayISO() }) }
@@ -608,6 +641,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigratio
     e.preventDefault(); update(d => ({ ...d, goals: [...d.goals, { ...form, id: crypto.randomUUID(), userId: profileId, calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs) }] })); notify('Цель КБЖУ сохранена')
   }
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <section className="settings-card"><div className="card-title"><div><span className="section-label">ЦЕЛИ КБЖУ</span><h2>Новая цель</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(u => <button key={u.id} className={profileId === u.id ? 'active' : ''} onClick={() => select(u.id)}>{u.name}</button>)}</div><form onSubmit={save}><label>Применить с даты<input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки'], ['fat', 'Жиры'], ['carbs', 'Углеводы']].map(([k, l]) => <label key={k}>{l}<input type="number" min="0" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>)}</div><button className="primary wide">Сохранить новую цель</button></form><p className="form-hint">Старые дни сохранят прежние цели.</p></section>}
+    <WeightGoalSettings viewer={viewer} data={data} update={update} notify={notify} />
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}
     {viewer.role === 'admin' && <BackupSettings data={data} update={update} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}

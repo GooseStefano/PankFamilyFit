@@ -9,6 +9,7 @@ create table recipe_ingredients (id uuid primary key default gen_random_uuid(), 
 create table meal_entries (id uuid primary key default gen_random_uuid(), user_id uuid not null references app_users, date date not null, meal_type text not null check(meal_type in ('breakfast','lunch','dinner','snack')), food_item_id uuid references food_items, food_name_snapshot text not null, amount numeric not null check(amount>0), unit_label text not null, calories_snapshot numeric not null, protein_snapshot numeric not null, fat_snapshot numeric not null, carbs_snapshot numeric not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create table daily_notes (id uuid primary key default gen_random_uuid(), user_id uuid not null references app_users, date date not null, text text not null default '', created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(user_id,date));
 create table weight_entries (id uuid primary key default gen_random_uuid(), user_id uuid not null references app_users(id), date date not null, weight numeric not null check(weight>0), note text, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(user_id,date));
+create table weight_goals (id uuid primary key default gen_random_uuid(), user_id uuid not null unique references app_users(id), target_weight numeric not null check(target_weight > 0), pace text not null check(pace in ('gentle','normal','aggressive')), start_date date not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create table workout_sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references app_users(id) on delete cascade, date date not null, week_type text not null check(week_type in ('A','B')), muscle_group text not null check(muscle_group in ('chest_triceps','back_biceps','legs_shoulders')), wellbeing_score integer check(wellbeing_score between 1 and 10), note text not null default '', created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(user_id,date));
 create table exercise_library (id uuid primary key default gen_random_uuid(), name text not null, default_muscle_group text not null check(default_muscle_group in ('chest_triceps','back_biceps','legs_shoulders')), created_at timestamptz not null default now(), updated_at timestamptz not null default now(), is_archived boolean not null default false);
 create unique index exercise_library_active_name_idx on exercise_library(lower(name)) where is_archived = false;
@@ -20,6 +21,7 @@ create table direct_messages (id uuid primary key default gen_random_uuid(), fro
 create index meal_entries_user_date_idx on meal_entries(user_id,date);
 create index nutrition_goals_user_date_idx on nutrition_goals(user_id,start_date desc);
 create index weight_entries_user_date_idx on weight_entries(user_id,date desc);
+create index weight_goals_user_idx on weight_goals(user_id);
 create index recipe_ingredients_recipe_idx on recipe_ingredients(recipe_food_item_id);
 create index workout_sessions_lookup_idx on workout_sessions(user_id,week_type,muscle_group,date desc);
 create index workout_exercises_session_idx on workout_exercises(workout_session_id,order_index);
@@ -41,6 +43,7 @@ alter table recipe_ingredients enable row level security;
 alter table meal_entries enable row level security;
 alter table daily_notes enable row level security;
 alter table weight_entries enable row level security;
+alter table weight_goals enable row level security;
 alter table workout_sessions enable row level security;
 alter table exercise_library enable row level security;
 alter table workout_exercises enable row level security;
@@ -61,7 +64,7 @@ create or replace function set_updated_at() returns trigger language plpgsql as 
 create or replace function pff_apply_updated_at() returns void language plpgsql as $$
 declare table_name text;
 begin
-  foreach table_name in array array['food_items','meal_entries','daily_notes','weight_entries','workout_sessions','exercise_library','workout_exercises','workout_sets','message_phrases','direct_messages'] loop
+  foreach table_name in array array['food_items','meal_entries','daily_notes','weight_entries','weight_goals','workout_sessions','exercise_library','workout_exercises','workout_sets','message_phrases','direct_messages'] loop
     execute format('drop trigger if exists %I on %I', table_name || '_updated_at', table_name);
     execute format('create trigger %I before update on %I for each row execute function set_updated_at()', table_name || '_updated_at', table_name);
   end loop;
@@ -81,6 +84,7 @@ create policy "ingredients admin write" on recipe_ingredients for all using (pff
 create policy "entries by user" on meal_entries for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
 create policy "notes by user" on daily_notes for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
 create policy "weight by user" on weight_entries for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
+create policy "weight goals by user" on weight_goals for all using (user_id = pff_user_id() or pff_is_admin()) with check (user_id = pff_user_id() or pff_is_admin());
 create policy "workouts admin only" on workout_sessions for all using (pff_is_admin()) with check (pff_is_admin());
 create policy "library admin only" on exercise_library for all using (pff_is_admin()) with check (pff_is_admin());
 create policy "workout exercises admin only" on workout_exercises for all using (pff_is_admin()) with check (pff_is_admin());
