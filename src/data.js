@@ -100,6 +100,28 @@ export function getWeekReport(data, userId, weekStart) {
   return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries }
 }
 
+export function getNutritionAnalytics(data, userId, period, referenceDate = todayISO()) {
+  const count = Number(period)
+  const days = Array.from({ length: count }, (_, index) => {
+    const date = shiftDate(referenceDate, -(count - index - 1))
+    const entries = data.entries.filter(entry => entry.userId === userId && entry.date === date)
+    const fact = entries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
+    const goal = getGoal(data.goals, userId, date)
+    const plan = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: Number(goal[key] || 0) }), {})
+    return { date, fact, plan, hasEntries: entries.length > 0 }
+  })
+  const recordedDays = days.filter(day => day.hasEntries)
+  const fact = recordedDays.reduce((total, day) => addNutrients(total, day.fact), emptyNutrients())
+  const plan = recordedDays.reduce((total, day) => addNutrients(total, day.plan), emptyNutrients())
+  const average = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] / (recordedDays.length || count) }), {})
+  return {
+    days, fact, plan, average,
+    calorieDifference: fact.calories - plan.calories,
+    daysWithEntries: recordedDays.length,
+    daysWithoutEntries: days.length - recordedDays.length,
+  }
+}
+
 export function getWeightStats(entries, userId, referenceDate = todayISO()) {
   const records = entries.filter(entry => entry.userId === userId && entry.date <= referenceDate).sort((a, b) => a.date.localeCompare(b.date))
   const latest = records.at(-1) || null
@@ -119,7 +141,7 @@ export function getWeightStats(entries, userId, referenceDate = todayISO()) {
 export function filterWeightPeriod(entries, period, referenceDate = todayISO()) {
   const sorted = [...entries].filter(entry => entry.date <= referenceDate).sort((a, b) => a.date.localeCompare(b.date))
   if (period === 'all') return sorted
-  const days = period === '7' ? 7 : 30
+  const days = period === '7' ? 7 : period === '14' ? 14 : 30
   const start = shiftDate(referenceDate, -(days - 1))
   return sorted.filter(entry => entry.date >= start)
 }

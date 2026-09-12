@@ -273,6 +273,41 @@ button { touch-action: manipulation; }
 .meal-repeat { width: 100%; min-height: 44px; margin: 8px 0 2px; font-size: 12px; }
 .repeat-summary { display: flex; flex-direction: column; gap: 5px; padding: 14px; border-radius: 14px; background: var(--accent-dark); }
 .repeat-summary span { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.analytics-profile { margin: 0 0 14px; }
+.analytics-periods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; margin: 0 0 14px; border-radius: 14px; background: var(--surface2); }
+.analytics-periods button { min-height: 48px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 800; }
+.analytics-periods button.active { background: var(--accent); color: #242a18; }
+.analytics-card,.insight-card,.analytics-empty { padding: 18px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.analytics-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.analytics-head > div { min-width: 0; }
+.analytics-head > span { flex: none; color: var(--muted); font-size: 10px; line-height: 1.4; text-align: right; }
+.analytics-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 8px; }
+.analytics-summary > div,.analytics-macros > div,.analytics-weight-grid > div { min-width: 0; padding: 11px; border-radius: 13px; background: var(--surface2); display: flex; flex-direction: column; gap: 4px; }
+.analytics-summary span,.analytics-macros span,.analytics-weight-grid span { color: var(--muted); font-size: 10px; }
+.analytics-summary strong,.analytics-macros strong,.analytics-weight-grid strong { font-size: 15px; overflow-wrap: anywhere; }
+.analytics-summary small,.analytics-macros small,.analytics-weight-grid small { color: var(--muted); font-size: 9px; }
+.analytics-macros,.analytics-weight-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.analytics-weight-grid { grid-template-columns: 1fr 1fr; margin: 16px 0 12px; }
+.analytics-days { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0 10px; color: var(--muted); font-size: 11px; }
+.analytics-days strong { color: var(--text); }
+.analytics-chart-wrap { overflow: hidden; border-radius: 14px; background: #2a2a2a; }
+.analytics-chart { display: block; width: 100%; height: auto; min-height: 144px; }
+.analytics-bar { fill: var(--accent); }
+.analytics-goal { stroke: #f0a45d; stroke-width: 2; stroke-linecap: round; }
+.analytics-legend { display: flex; justify-content: flex-end; gap: 12px; padding: 0 10px 10px; color: var(--muted); font-size: 10px; }
+.analytics-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.analytics-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+.analytics-legend i.goal { height: 2px; border-radius: 0; background: #f0a45d; }
+.analytics-chart-empty { min-height: 128px; padding: 24px; border-radius: 14px; background: var(--accent-dark); color: var(--muted); font-size: 12px; line-height: 1.5; display: grid; place-items: center; text-align: center; }
+.trend { padding: 5px 8px; border-radius: 8px; background: var(--surface2); font-size: 10px !important; font-weight: 800; }
+.trend.down { color: var(--accent) !important; background: var(--accent-dark); }
+.trend.up { color: #f0a45d !important; background: #4a3828; }
+.insight-card { background: var(--accent-dark); }
+.insight-card h2 { font-size: 17px; }
+.insight-card p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.analytics-empty { min-height: 170px; background: var(--accent-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
+.analytics-empty svg { width: 34px; height: 34px; margin-bottom: 10px; color: var(--accent); }
+.analytics-empty strong { color: var(--text); margin-bottom: 4px; }
 .product-actions { flex-wrap: wrap; overflow: visible; }
 .product-actions .recipe-create { flex-basis: 100%; }
 .product-list article { grid-template-columns: 44px minmax(0,1fr) auto; }
@@ -333,6 +368,10 @@ button { touch-action: manipulation; }
 @media (max-width: 374px) {
   .quick-create-actions { grid-template-columns: 1fr; }
   .frequent-food-grid { grid-template-columns: 1fr; }
+  .analytics-card,.insight-card,.analytics-empty { padding: 14px; }
+  .analytics-summary { grid-template-columns: 1fr; }
+  .analytics-macros { grid-template-columns: 1fr 1fr; }
+  .analytics-macros > div:last-child { grid-column: 1 / -1; }
   .recipe-ingredient { padding: 12px; }
   .recipe-portions { grid-template-columns: 1fr; }
 }

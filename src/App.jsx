@@ -5,7 +5,7 @@ import {
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
   Scale, Dumbbell,
 } from 'lucide-react'
-import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
+import { CATEGORIES, MEALS, UNIT_LABELS, USERS, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getNutritionAnalytics, getWeekReport, getWeekStart, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
 import { storage } from './services/storage'
 import WorkoutPage from './WorkoutPage'
@@ -401,16 +401,59 @@ function WeeklyReport({ profile, data, openDay }) {
   </>
 }
 
+function NutritionChart({ days }) {
+  const populated = days.filter(day => day.hasEntries)
+  if (populated.length < 2) return <div className="analytics-chart-empty">Пока мало данных для анализа. Добавьте записи за несколько дней.</div>
+  const width = 360; const height = 144; const left = 8; const right = 8; const top = 14; const bottom = 25
+  const max = Math.max(...days.map(day => day.fact.calories), ...days.map(day => day.plan.calories), 1)
+  const slot = (width - left - right) / days.length
+  return <div className="analytics-chart-wrap"><svg className="analytics-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`График калорий за ${days.length} дней`}>
+    {[.33, .66, 1].map(ratio => <line key={ratio} className="chart-grid-line" x1={left} x2={width - right} y1={top + (1 - ratio) * (height - top - bottom)} y2={top + (1 - ratio) * (height - top - bottom)} />)}
+    {days.map((day, index) => {
+      const barHeight = day.fact.calories / max * (height - top - bottom)
+      const goalY = top + (1 - Math.min(1, day.plan.calories / max)) * (height - top - bottom)
+      const x = left + index * slot + Math.max(2, slot * .18)
+      return <g key={day.date}><rect className="analytics-bar" x={x} y={top + (height - top - bottom - barHeight)} width={Math.max(4, slot * .64)} height={barHeight} rx="3"><title>{prettyDate(day.date)}: {round(day.fact.calories)} ккал</title></rect>{day.plan.calories > 0 && <line className="analytics-goal" x1={x} x2={x + Math.max(4, slot * .64)} y1={goalY} y2={goalY} />}</g>
+    })}
+    <text className="chart-axis-label" x={left} y={height - 7}>{new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(new Date(`${days[0].date}T12:00:00`)).replace('.', '')}</text>
+    <text className="chart-axis-label" x={width - right} y={height - 7} textAnchor="end">{new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(new Date(`${days.at(-1).date}T12:00:00`)).replace('.', '')}</text>
+  </svg><div className="analytics-legend"><span><i className="fact" />Факт</span><span><i className="goal" />Цель</span></div></div>
+}
+
+const weightTrend = stats => {
+  if (!stats.weekChange) return { key: 'unknown', label: 'Недостаточно данных' }
+  const value = Number(stats.weekChange.value)
+  if (Math.abs(value) < .2) return { key: 'stable', label: 'Стабилен' }
+  return value < 0 ? { key: 'down', label: 'Снижается' } : { key: 'up', label: 'Растёт' }
+}
+
+function AnalyticsPage({ viewer, profile, setProfile, data, embedded = false }) {
+  const [period, setPeriod] = useState('7')
+  const report = getNutritionAnalytics(data, profile.id, period)
+  const weightStats = getWeightStats(data.weightEntries, profile.id)
+  const trend = weightTrend(weightStats)
+  const periodWeights = filterWeightPeriod(weightStats.records, period)
+  const closeToGoal = report.plan.calories > 0 && Math.abs(report.calorieDifference / report.plan.calories) <= .05
+  const hasEnough = report.daysWithEntries >= 3 && weightStats.records.length >= 2 && trend.key !== 'unknown'
+  const insight = !hasEnough ? 'Пока мало данных для вывода. Добавьте записи за несколько дней.' : trend.key === 'down' && report.calorieDifference < 0 ? 'Вес снижается, калории в среднем ниже цели.' : trend.key === 'stable' && closeToGoal ? 'Вес стоит, а средние калории близко к цели.' : trend.key === 'up' && report.calorieDifference > 0 ? 'Вес растёт, средние калории выше цели.' : 'По выбранному периоду нет однозначной связи между весом и питанием.'
+  return <>{!embedded && <PageHead eyebrow="АНАЛИТИКА" title="Отчёты" subtitle={`КБЖУ и вес · ${profile.name}`} />}
+    {viewer.role === 'admin' && <div className="profile-switch compact analytics-profile" aria-label="Профиль отчёта">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}
+    <div className="analytics-periods" role="tablist" aria-label="Период отчёта">{[['7', '7 дней'], ['14', '14 дней'], ['30', '30 дней']].map(([key, label]) => <button key={key} role="tab" aria-selected={period === key} className={period === key ? 'active' : ''} onClick={() => setPeriod(key)}>{label}</button>)}</div>
+    {report.daysWithEntries < 2 ? <section className="analytics-empty"><CalendarRange aria-hidden="true" /><strong>Пока мало данных для анализа.</strong><span>Добавьте записи за несколько дней.</span></section> : <section className="analytics-card" aria-labelledby="nutrition-report-title"><div className="analytics-head"><div><span className="section-label">КБЖУ</span><h2 id="nutrition-report-title">За {period} дней</h2></div><span>{report.daysWithEntries}/{period} дней с едой</span></div><div className="analytics-summary"><div><span>Средние калории</span><strong>{round(report.average.calories)} <small>ккал</small></strong></div><div><span>Дефицит / профицит</span><strong className={report.calorieDifference < 0 ? 'weight-down' : report.calorieDifference > 0 ? 'weight-up' : ''}>{signed(round(report.calorieDifference))} <small>ккал</small></strong></div></div><div className="analytics-macros">{metricRows.slice(1).map(([key, label]) => <div key={key}><span>{label}</span><strong>{round(report.average[key])} г</strong></div>)}</div><div className="analytics-days"><span>С записями: <strong>{report.daysWithEntries}</strong></span><span>Без записей: <strong>{report.daysWithoutEntries}</strong></span></div><NutritionChart days={report.days} /></section>}
+      <section className="analytics-card" aria-labelledby="weight-report-title"><div className="analytics-head"><div><span className="section-label">ВЕС</span><h2 id="weight-report-title">Динамика</h2></div><span className={`trend ${trend.key}`}>{trend.label}</span></div>{weightStats.latest ? <><div className="analytics-weight-grid"><div><span>Последний вес</span><strong>{weightStats.latest.weight} <small>кг</small></strong></div><div><span>За 7 дней</span><ChangeValue change={weightStats.weekChange} /></div><div><span>За 30 дней</span><ChangeValue change={weightStats.monthChange} /></div><div><span>Среднее недели</span>{weightStats.weekAverage === null ? <span className="insufficient">Недостаточно данных</span> : <strong>{round(weightStats.weekAverage)} <small>кг</small></strong>}</div></div><WeightChart entries={periodWeights} /></> : <div className="analytics-chart-empty">Пока мало данных для анализа. Добавьте записи за несколько дней.</div>}</section>
+      <section className="insight-card" aria-labelledby="insight-title"><span className="section-label">ЧТО ВИДНО ПО ПЕРИОДУ</span><h2 id="insight-title">Спокойный вывод</h2><p>{insight}</p></section>
+  </>
+}
+
 function HistoryPage({ viewer, profile, setProfile, data, setDate, goToday }) {
-  const [mode, setMode] = useState('week')
+  const [mode, setMode] = useState('reports')
   const dates = [...new Set([...data.entries.filter(e => e.userId === profile.id).map(e => e.date), ...Object.keys(data.notes).filter(k => k.startsWith(profile.id + ':')).map(k => k.split(':')[1])])].sort().reverse()
-  return <><PageHead eyebrow="ДНЕВНИК" title="История" subtitle={`Дневник и отчёты · ${profile.name}`} />
-    {viewer.role === 'admin' && <div className="profile-switch compact history-profile" aria-label="Профиль отчёта">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}
-    <div className="history-modes" role="tablist" aria-label="Режим истории"><button role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}><CalendarRange aria-hidden="true" />Неделя</button><button role="tab" aria-selected={mode === 'days'} className={mode === 'days' ? 'active' : ''} onClick={() => setMode('days')}><CalendarDays aria-hidden="true" />Дни</button></div>
-    {mode === 'week' ? <WeeklyReport profile={profile} data={data} openDay={setDate} /> : dates.length === 0 ? <div className="page-empty history-empty"><History aria-hidden="true" /><h2>История пока пуста</h2><p>Добавленные дни появятся здесь.</p><button className="primary" onClick={goToday}>Перейти к сегодня</button></div> : <div className="history-list">{dates.map(itemDate => {
-    const totals = sum(data.entries.filter(e => e.userId === profile.id && e.date === itemDate)); const goal = getGoal(data.goals, profile.id, itemDate)
-    return <button key={itemDate} onClick={() => setDate(itemDate)}><CalendarDays aria-hidden="true" /><span><strong>{prettyDate(itemDate)}</strong><small>{round(totals.calories)} из {goal.calories} ккал</small></span><div className="mini-progress"><i style={{ width: `${Math.min(100, goal.calories ? totals.calories / goal.calories * 100 : 0)}%` }} /></div><ChevronRight aria-hidden="true" /></button>
-  })}</div>}
+  return <><PageHead eyebrow={mode === 'reports' ? 'АНАЛИТИКА' : 'ДНЕВНИК'} title={mode === 'reports' ? 'Отчёты' : 'История'} subtitle={mode === 'reports' ? `КБЖУ и вес · ${profile.name}` : `Дневник · ${profile.name}`} />
+    <div className="history-modes" role="tablist" aria-label="Раздел истории"><button role="tab" aria-selected={mode === 'reports'} className={mode === 'reports' ? 'active' : ''} onClick={() => setMode('reports')}><CalendarRange aria-hidden="true" />Отчёты</button><button role="tab" aria-selected={mode === 'days'} className={mode === 'days' ? 'active' : ''} onClick={() => setMode('days')}><CalendarDays aria-hidden="true" />Дни</button></div>
+    {mode === 'reports' ? <AnalyticsPage embedded viewer={viewer} profile={profile} setProfile={setProfile} data={data} /> : <>{viewer.role === 'admin' && <div className="profile-switch compact history-profile" aria-label="Профиль истории">{USERS.map(user => <button key={user.id} className={profile.id === user.id ? 'active' : ''} onClick={() => setProfile(user)}>{user.name}</button>)}</div>}{dates.length === 0 ? <div className="page-empty history-empty"><History aria-hidden="true" /><h2>История пока пуста</h2><p>Добавленные дни появятся здесь.</p><button className="primary" onClick={goToday}>Перейти к сегодня</button></div> : <div className="history-list">{dates.map(itemDate => {
+      const totals = sum(data.entries.filter(e => e.userId === profile.id && e.date === itemDate)); const goal = getGoal(data.goals, profile.id, itemDate)
+      return <button key={itemDate} onClick={() => setDate(itemDate)}><CalendarDays aria-hidden="true" /><span><strong>{prettyDate(itemDate)}</strong><small>{round(totals.calories)} из {goal.calories} ккал</small></span><div className="mini-progress"><i style={{ width: `${Math.min(100, goal.calories ? totals.calories / goal.calories * 100 : 0)}%` }} /></div><ChevronRight aria-hidden="true" /></button>
+    })}</div>}</>}
   </>
 }
 
@@ -573,7 +616,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigratio
 function PageHead({ eyebrow, title, subtitle }) { return <header className="page-head"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></header> }
 
 function BottomNav({ viewer, page, setPage }) {
-  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'История'], ['weight', Scale, 'Вес'], ...(viewer.id === 'danya' ? [['workouts', Dumbbell, 'Тренировки'], ['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
+  const links = [['today', Clock3, 'Сегодня'], ['history', History, 'Отчёты'], ['weight', Scale, 'Вес'], ...(viewer.id === 'danya' ? [['workouts', Dumbbell, 'Тренировки'], ['products', Apple, 'Продукты']] : []), ['settings', Settings, 'Настройки']]
   return <nav className="bottom-nav" aria-label="Основная навигация">{links.map(([key, Icon, label]) => <button key={key} className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => setPage(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
 }
 
