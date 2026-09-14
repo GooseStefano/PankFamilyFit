@@ -94,6 +94,7 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
   const amountNumber = Number(amount); const amountInvalid = amount === '' || !Number.isFinite(amountNumber) || amountNumber <= 0
   const available = selected ? [{ unit: selected.baseUnit, label: UNIT_LABELS[selected.baseUnit] }, ...(selected.measures || [])] : []
   const calc = selected && !amountInvalid ? calculate(selected, amountNumber, unit) : null
+  const quickAmounts = unit === 'g' || unit === 'ml' ? [50, 100, 150, 200, 250, 300] : []
   const choose = f => { setSelected(f); setUnit(f.baseUnit); setAmount(f.baseAmount); setAmountTouched(false) }
   const submit = e => {
     e.preventDefault(); setAmountTouched(true)
@@ -118,6 +119,7 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
         <div className="form-grid"><label htmlFor="food-amount">Количество<input id="food-amount" type="number" min="0.1" step="0.1" value={amount}
           onBlur={() => setAmountTouched(true)} onChange={e => { setAmount(e.target.value); setAmountTouched(true) }} aria-invalid={amountTouched && amountInvalid} aria-describedby="amount-error" /></label>
           <label>Единица<select value={unit} onChange={e => setUnit(e.target.value)}>{available.map(m => <option key={m.unit} value={m.unit}>{m.label}</option>)}</select></label></div>
+        {quickAmounts.length > 0 && <div className="quick-portions" aria-label={`Быстрые порции в ${UNIT_LABELS[unit] || unit}`}>{quickAmounts.map(value => <button type="button" key={value} onClick={() => { setAmount(value); setAmountTouched(true) }}>{value} {UNIT_LABELS[unit] || unit}</button>)}</div>}
         <div id="amount-error" className="field-error" role="alert">{amountTouched && amountInvalid ? 'Укажите количество больше нуля.' : ''}</div>
         <div className="form-grid"><label>Приём пищи<select value={meal} onChange={e => setMeal(e.target.value)}>{Object.entries(MEALS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
           <label>Дата<input type="date" max={todayISO()} value={date} onChange={e => setDate(e.target.value)} /></label></div>
@@ -135,6 +137,53 @@ function RepeatEntryModal({ entry, date, onClose, onSave }) {
     <header><div><span className="section-label">ПОВТОРИТЬ ЕДУ</span><h2 id="repeat-entry-title">{entry.foodName}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
     <form onSubmit={submit}><div className="repeat-summary"><strong>{entry.amount} {UNIT_LABELS[entry.unit] || entry.unit}</strong><span>{round(entry.calories)} ккал · Б {round(entry.protein)} · Ж {round(entry.fat)} · У {round(entry.carbs)}</span></div><label>Добавить в приём пищи<select value={meal} onChange={event => setMeal(event.target.value)}>{Object.entries(MEALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><p className="form-hint">Количество и снимок КБЖУ будут сохранены без изменений.</p><button className="primary wide"><Copy aria-hidden="true" />Повторить</button></form>
   </section></div>
+}
+
+function MealTemplateModal({ initial, initialItems, foods, onClose, onSave }) {
+  const [name, setName] = useState(initial?.name || '')
+  const [mealType, setMealType] = useState(initial?.mealType || 'breakfast')
+  const [rows, setRows] = useState(() => initialItems.map(item => ({ id: item.id, foodItemId: item.foodItemId, amount: item.amount, unit: item.unitLabel })))
+  const activeFoods = foods.filter(food => !food.archived)
+  const changeRow = (id, value) => setRows(current => current.map(row => row.id === id ? { ...row, ...value } : row))
+  const addRow = () => setRows(current => [...current, { id: crypto.randomUUID(), foodItemId: '', amount: 100, unit: 'g' }])
+  const prepared = rows.map(row => {
+    const food = activeFoods.find(item => item.id === row.foodItemId)
+    const nutrition = food && Number(row.amount) > 0 ? calculate(food, Number(row.amount), row.unit) : null
+    return { ...row, food, nutrition }
+  })
+  const invalid = !name.trim() || prepared.length === 0 || prepared.some(row => !row.food || !row.nutrition)
+  const submit = event => {
+    event.preventDefault()
+    if (invalid) return
+    onSave({ name: name.trim(), mealType, items: prepared.map((row, index) => ({ id: row.id, foodItemId: row.food.id, foodName: row.food.name, amount: Number(row.amount), unitLabel: row.unit, ...row.nutrition, orderIndex: index })) })
+  }
+  return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet template-sheet" role="dialog" aria-modal="true" aria-labelledby="template-title">
+    <header><div><span className="section-label">ШАБЛОН ЕДЫ</span><h2 id="template-title">{initial ? 'Изменить шаблон' : 'Новый шаблон'}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
+    <form onSubmit={submit}><label>Название<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Например, обычный завтрак" /></label><label>Приём пищи<select value={mealType} onChange={event => setMealType(event.target.value)}>{Object.entries(MEALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <div className="template-items-head"><strong>Позиции</strong><span>{rows.length}</span></div>
+      <div className="template-item-list">{prepared.map((row, index) => { const units = row.food ? [{ unit: row.food.baseUnit, label: UNIT_LABELS[row.food.baseUnit] }, ...(row.food.measures || [])] : []
+        return <div className="template-item-form" key={row.id}><div className="template-item-title"><strong>Позиция {index + 1}</strong><button type="button" aria-label={`Удалить позицию ${index + 1}`} onClick={() => setRows(current => current.filter(item => item.id !== row.id))}><Trash2 /></button></div><label>Продукт<select value={row.foodItemId} onChange={event => { const food = activeFoods.find(item => item.id === event.target.value); changeRow(row.id, { foodItemId: event.target.value, unit: food?.baseUnit || 'g', amount: food?.baseAmount || 100 }) }}><option value="">Выберите продукт</option>{activeFoods.map(food => <option key={food.id} value={food.id}>{food.name}</option>)}</select></label><div className="form-grid"><label>Количество<input type="number" inputMode="decimal" min="0.1" step="0.1" value={row.amount} onChange={event => changeRow(row.id, { amount: event.target.value })} /></label><label>Единица<select disabled={!row.food} value={row.unit} onChange={event => changeRow(row.id, { unit: event.target.value })}>{units.map(item => <option key={item.unit} value={item.unit}>{item.label}</option>)}</select></label></div>{row.food && row.nutrition && <small className="template-item-nutrition">{round(row.nutrition.calories)} ккал · Б {round(row.nutrition.protein)} · Ж {round(row.nutrition.fat)} · У {round(row.nutrition.carbs)}</small>}</div>})}</div>
+      <button type="button" className="secondary wide" onClick={addRow}><Plus aria-hidden="true" />Добавить позицию</button><div className="field-error" role="alert">{invalid ? 'Укажите название и хотя бы одну позицию с корректным количеством.' : ''}</div><button className="primary wide" disabled={invalid}>{initial ? 'Сохранить шаблон' : 'Создать шаблон'}</button>
+    </form>
+  </section></div>
+}
+
+function MealTemplatesSettings({ data, update, notify }) {
+  const [modal, setModal] = useState(null)
+  const save = values => {
+    const existing = modal?.template
+    const now = new Date().toISOString(); const id = existing?.id || crypto.randomUUID()
+    const template = { id, name: values.name, mealType: values.mealType, createdBy: 'danya', isActive: true, createdAt: existing?.createdAt || now, updatedAt: now }
+    const items = values.items.map(item => ({ ...item, id: existing ? crypto.randomUUID() : item.id, templateId: id, createdAt: now, updatedAt: now }))
+    update(current => ({ ...current, mealTemplates: [...current.mealTemplates.filter(item => item.id !== id), template], mealTemplateItems: [...current.mealTemplateItems.filter(item => item.templateId !== id), ...items] }))
+    setModal(null); notify(existing ? 'Шаблон обновлён' : 'Шаблон создан')
+  }
+  const remove = template => {
+    if (!window.confirm(`Удалить шаблон «${template.name}»? Это не удалит записи дневника.`)) return
+    update(current => ({ ...current, mealTemplates: current.mealTemplates.filter(item => item.id !== template.id), mealTemplateItems: current.mealTemplateItems.filter(item => item.templateId !== template.id) })); notify('Шаблон удалён')
+  }
+  const templates = data.mealTemplates.filter(item => item.isActive !== false).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  return <section className="settings-card meal-templates-settings" aria-labelledby="meal-templates-title"><div className="card-title"><div><span className="section-label">ШАБЛОНЫ ЕДЫ</span><h2 id="meal-templates-title">Как обычно</h2></div><CookingPot aria-hidden="true" /></div><p className="form-hint">Общие шаблоны доступны Дане и Вике, но менять их может только Даня.</p>{templates.length ? <div className="template-settings-list">{templates.map(template => <div key={template.id}><span><strong>{template.name}</strong><small>{MEALS[template.mealType]} · {data.mealTemplateItems.filter(item => item.templateId === template.id).length} поз.</small></span><div><button aria-label={`Изменить шаблон ${template.name}`} onClick={() => setModal({ template })}><Pencil /></button><button aria-label={`Удалить шаблон ${template.name}`} onClick={() => remove(template)}><Trash2 /></button></div></div>)}</div> : <p className="insight-empty">Шаблонов пока нет.</p>}<button className="secondary wide" onClick={() => setModal({})}><Plus aria-hidden="true" />Создать шаблон</button>{modal && <MealTemplateModal initial={modal.template || null} initialItems={modal.template ? data.mealTemplateItems.filter(item => item.templateId === modal.template.id).sort((a, b) => a.orderIndex - b.orderIndex) : []} foods={data.foods} onClose={() => setModal(null)} onSave={save} />}</section>
 }
 
 function RecipeModal({ foods, initial, initialIngredients, currentUser, onClose, onSave }) {
@@ -290,7 +339,7 @@ function DayNote({ value, onSave, onDelete }) {
 }
 
 function Today({ viewer, profile, setProfile, data, update, date, setDate, notify }) {
-  const [meal, setMeal] = useState('breakfast'); const [modal, setModal] = useState(null); const [creating, setCreating] = useState(null)
+  const [meal, setMeal] = useState('breakfast'); const [modal, setModal] = useState(null); const [creating, setCreating] = useState(null); const [templatesOpen, setTemplatesOpen] = useState(false)
   const dayEntries = data.entries.filter(e => e.userId === profile.id && e.date === date); const mealEntries = dayEntries.filter(e => e.mealType === meal)
   const total = sum(dayEntries); const mealTotal = sum(mealEntries); const goal = getGoal(data.goals, profile.id, date); const noteKey = `${profile.id}:${date}`
   const note = data.notes[noteKey] || ''; const dayIsEmpty = dayEntries.length === 0 && !note
@@ -321,6 +370,21 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
     if (!window.confirm(`Добавить ${yesterdayEntries.length} ${yesterdayEntries.length === 1 ? 'запись' : 'записи'} из вчерашнего ${MEALS[meal].toLowerCase()}? Текущие записи останутся.`)) return
     addRepeatedEntries(yesterdayEntries, meal, 'Приём пищи повторён из вчера')
   }
+  const repeatLastMeal = () => {
+    const dates = [...new Set(data.entries.filter(entry => entry.userId === profile.id && entry.date < date && entry.mealType === meal).map(entry => entry.date))].sort((a, b) => b.localeCompare(a))
+    const sourceDate = dates[0]
+    if (!sourceDate) { notify(`Прошлого «${MEALS[meal].toLowerCase()}» пока нет`); return }
+    const records = data.entries.filter(entry => entry.userId === profile.id && entry.date === sourceDate && entry.mealType === meal)
+    if (!window.confirm(`Добавить ${records.length} ${records.length === 1 ? 'запись' : 'записи'} из ${new Date(`${sourceDate}T12:00:00`).toLocaleDateString('ru-RU')}? Текущие записи останутся.`)) return
+    addRepeatedEntries(records, meal, 'Последний приём пищи повторён')
+  }
+  const applyTemplate = template => {
+    const items = data.mealTemplateItems.filter(item => item.templateId === template.id).sort((a, b) => a.orderIndex - b.orderIndex)
+    if (!items.length) { notify('В этом шаблоне пока нет позиций'); return }
+    if (!window.confirm(`Добавить ${items.length} ${items.length === 1 ? 'позицию' : 'позиции'} из «${template.name}» в «${MEALS[meal].toLowerCase()}»? Текущие записи останутся.`)) return
+    addRepeatedEntries(items.map(item => ({ foodItemId: item.foodItemId, foodName: item.foodName, amount: item.amount, unit: item.unitLabel, calories: item.calories, protein: item.protein, fat: item.fat, carbs: item.carbs })), meal, 'Шаблон добавлен в дневник')
+  }
+  const templates = data.mealTemplates.filter(item => item.isActive !== false)
   const remove = id => {
     if (window.confirm('Удалить эту запись из дневника?')) { update(d => ({ ...d, entries: d.entries.filter(e => e.id !== id) })); notify('Запись удалена') }
   }
@@ -342,7 +406,7 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
     {date !== todayISO() && dayIsEmpty && <div className="day-empty"><FileQuestion aria-hidden="true" /><div><strong>На {prettyDate(date)} нет истории</strong><span>Добавьте еду или комментарий, чтобы создать запись дня.</span></div></div>}
     <section className="meal-section"><div className="meal-tabs" role="tablist">{Object.entries(MEALS).map(([k, v]) => <button role="tab" aria-selected={meal === k} className={meal === k ? 'active' : ''} key={k} onClick={() => setMeal(k)}>{v}</button>)}</div>
       <div className="meal-list">{mealEntries.length === 0 ? <div className="empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>В {MEALS[meal].toLowerCase()} пока нет еды</strong><span>Добавьте первую запись.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Повторить ${e.foodName}`} onClick={() => setModal({ repeat: e })}><Copy /></button><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
-      <button className="secondary meal-repeat" onClick={repeatYesterdayMeal}><Copy aria-hidden="true" />Повторить из вчера</button><div className="meal-total"><span>Итого за приём</span><strong>{round(mealTotal.calories)} ккал</strong></div><button className="primary wide" onClick={() => setModal({ meal, date })}><Plus aria-hidden="true" />Добавить еду</button>
+      <div className="meal-quick-actions"><button className="secondary" onClick={repeatLastMeal}><Copy aria-hidden="true" />Как обычно</button><button className="secondary" onClick={repeatYesterdayMeal}><Copy aria-hidden="true" />Повторить из вчера</button></div>{templates.length > 0 && <><button className="secondary meal-repeat" aria-expanded={templatesOpen} onClick={() => setTemplatesOpen(value => !value)}><CookingPot aria-hidden="true" />{templatesOpen ? 'Скрыть шаблоны' : `Шаблоны (${templates.length})`}</button>{templatesOpen && <div className="meal-template-picker">{templates.map(template => <button key={template.id} onClick={() => applyTemplate(template)}><span><strong>{template.name}</strong><small>{MEALS[template.mealType]} · {data.mealTemplateItems.filter(item => item.templateId === template.id).length} поз.</small></span><Plus aria-hidden="true" /></button>)}</div>}</>}<div className="meal-total"><span>Итого за приём</span><strong>{round(mealTotal.calories)} ккал</strong></div><button className="primary wide" onClick={() => setModal({ meal, date })}><Plus aria-hidden="true" />Добавить еду</button>
     </section>
     <DayNote key={noteKey} value={note} onSave={saveNote} onDelete={deleteNote} />
     {modal?.repeat && <RepeatEntryModal entry={modal.repeat} date={date} onClose={() => setModal(null)} onSave={targetMeal => repeatEntry(modal.repeat, targetMeal)} />}
@@ -642,6 +706,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigratio
   }
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <section className="settings-card"><div className="card-title"><div><span className="section-label">ЦЕЛИ КБЖУ</span><h2>Новая цель</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(u => <button key={u.id} className={profileId === u.id ? 'active' : ''} onClick={() => select(u.id)}>{u.name}</button>)}</div><form onSubmit={save}><label>Применить с даты<input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки'], ['fat', 'Жиры'], ['carbs', 'Углеводы']].map(([k, l]) => <label key={k}>{l}<input type="number" min="0" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>)}</div><button className="primary wide">Сохранить новую цель</button></form><p className="form-hint">Старые дни сохранят прежние цели.</p></section>}
     <WeightGoalSettings viewer={viewer} data={data} update={update} notify={notify} />
+    {viewer.role === 'admin' && <MealTemplatesSettings data={data} update={update} notify={notify} />}
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}
     {viewer.role === 'admin' && <BackupSettings data={data} update={update} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}

@@ -11,7 +11,7 @@ const DEV_PIN_HASHES = {
 
 export const emptyState = (withDemo = false) => ({
   foods: withDemo ? INITIAL_FOODS : [], goals: withDemo ? INITIAL_GOALS : [], weightGoals: [], entries: [], notes: {},
-  weightEntries: withDemo ? INITIAL_WEIGHT_ENTRIES : [], recipeIngredients: [], workoutSessions: [],
+  weightEntries: withDemo ? INITIAL_WEIGHT_ENTRIES : [], recipeIngredients: [], mealTemplates: [], mealTemplateItems: [], workoutSessions: [],
   exerciseLibrary: [], workoutExercises: [], workoutSets: [], messagePhrases: [], dailyPhraseShows: [], directMessages: [],
 })
 

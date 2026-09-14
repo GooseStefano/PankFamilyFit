@@ -294,6 +294,29 @@ button { touch-action: manipulation; }
 .frequent-food-grid small { color: var(--accent); font-size: 10px; }
 .food-results-title { margin: 2px 0 3px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .meal-repeat { width: 100%; min-height: 44px; margin: 8px 0 2px; font-size: 12px; }
+.meal-quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 2px; }
+.meal-quick-actions button { min-width: 0; min-height: 44px; padding: 0 9px; font-size: 11px; }
+.meal-template-picker { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.meal-template-picker button { min-width: 0; min-height: 52px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface2); color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
+.meal-template-picker button > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.meal-template-picker small { color: var(--muted); font-size: 10px; }
+.meal-template-picker svg { flex: none; color: var(--accent); }
+.quick-portions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: -2px 0 2px; }
+.quick-portions button { min-width: 0; min-height: 40px; padding: 0 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text); font-size: 11px; font-weight: 800; }
+.template-sheet { overflow-x: hidden; }
+.template-sheet form { gap: 12px; }
+.template-items-head { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.template-items-head span { min-width: 28px; padding: 4px 7px; border-radius: 9px; background: var(--surface2); color: var(--muted); font-size: 11px; text-align: center; }
+.template-item-list,.template-settings-list { display: flex; flex-direction: column; gap: 8px; }
+.template-item-form { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface2); }
+.template-item-form label,.template-item-form input,.template-item-form select { min-width: 0; width: 100%; }
+.template-item-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.template-item-title button,.template-settings-list button { min-width: 44px; min-height: 44px; padding: 0; }
+.template-item-nutrition { display: block; margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.template-settings-list > div { min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.template-settings-list > div > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.template-settings-list small { color: var(--muted); font-size: 10px; }
+.template-settings-list > div > div { display: flex; gap: 6px; flex: none; }
 .repeat-summary { display: flex; flex-direction: column; gap: 5px; padding: 14px; border-radius: 14px; background: var(--accent-dark); }
 .repeat-summary span { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .analytics-profile { margin: 0 0 14px; }

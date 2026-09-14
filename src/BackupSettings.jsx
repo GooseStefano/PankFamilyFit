@@ -1,16 +1,17 @@
 import { useRef, useState } from 'react'
 import { DatabaseBackup, Download, Upload } from 'lucide-react'
 
-const DATA_KEYS = ['foods', 'goals', 'weightGoals', 'entries', 'notes', 'weightEntries', 'recipeIngredients', 'workoutSessions', 'exerciseLibrary', 'workoutExercises', 'workoutSets', 'messagePhrases', 'dailyPhraseShows', 'directMessages']
-const REQUIRED_DATA_KEYS = DATA_KEYS.filter(key => key !== 'weightGoals')
+const DATA_KEYS = ['foods', 'goals', 'weightGoals', 'entries', 'notes', 'weightEntries', 'recipeIngredients', 'mealTemplates', 'mealTemplateItems', 'workoutSessions', 'exerciseLibrary', 'workoutExercises', 'workoutSets', 'messagePhrases', 'dailyPhraseShows', 'directMessages']
+const OPTIONAL_DATA_KEYS = new Set(['weightGoals', 'mealTemplates', 'mealTemplateItems'])
+const REQUIRED_DATA_KEYS = DATA_KEYS.filter(key => !OPTIONAL_DATA_KEYS.has(key))
 const isPlainObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-const validBackup = backup => backup?.format === 'pank-family-fit-backup' && isPlainObject(backup.data) && REQUIRED_DATA_KEYS.every(key => key === 'notes' ? isPlainObject(backup.data.notes) : Array.isArray(backup.data[key])) && (backup.data.weightGoals === undefined || Array.isArray(backup.data.weightGoals))
+const validBackup = backup => backup?.format === 'pank-family-fit-backup' && isPlainObject(backup.data) && REQUIRED_DATA_KEYS.every(key => key === 'notes' ? isPlainObject(backup.data.notes) : Array.isArray(backup.data[key])) && [...OPTIONAL_DATA_KEYS].every(key => backup.data[key] === undefined || Array.isArray(backup.data[key]))
 const cleanedData = data => Object.fromEntries(DATA_KEYS.map(key => [key, key === 'notes' ? { ...(data.notes || {}) } : [...(data[key] || [])]]))
 
 export default function BackupSettings({ data, update, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
   const inputRef = useRef(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const download = () => {
-    const backup = { format: 'pank-family-fit-backup', version: '0.14.0', exportedAt: new Date().toISOString(), data: cleanedData(data) }
+    const backup = { format: 'pank-family-fit-backup', version: '0.15.0', exportedAt: new Date().toISOString(), data: cleanedData(data) }
     const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a'); link.href = url; link.download = `pank-family-fit-backup-${backup.exportedAt.slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url)
     notify('Резервная копия скачана')
@@ -38,7 +39,7 @@ export default function BackupSettings({ data, update, notify, hasLocalMigration
   return <>
     <section className="settings-card backup-card" aria-labelledby="backup-title">
       <div className="card-title"><div><span className="section-label">ДАННЫЕ</span><h2 id="backup-title">Резервная копия</h2></div><DatabaseBackup aria-hidden="true" /></div>
-      <p className="form-hint">JSON содержит дневник, продукты, рецепты, цели, вес, тренировки, послания и комментарии. PIN, токены и ключи не входят.</p>
+      <p className="form-hint">JSON содержит дневник, продукты, рецепты, шаблоны еды, цели, вес, тренировки, послания и комментарии. PIN, токены и ключи не входят.</p>
       <div className="backup-actions"><button className="secondary" onClick={download}><Download aria-hidden="true" />Скачать JSON</button><button className="secondary" onClick={() => inputRef.current?.click()}><Upload aria-hidden="true" />Импортировать JSON</button></div>
       <input ref={inputRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={importFile} />
       {error && <p className="backup-error" role="alert">{error}</p>}
