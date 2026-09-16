@@ -432,7 +432,7 @@ button { touch-action: manipulation; }
 .recipe-favorite input { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; }
 .recipe-favorite span { min-height: 48px; padding: 0 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface2); color: var(--muted); display: flex; align-items: center; gap: 9px; }
 .recipe-favorite input:checked + span { border-color: #71883e; background: var(--accent-dark); color: var(--text); }
-.recipe-favorite input:focus-visible + span { outline: 3px solid rgba(163,198,68,.7); outline-offset: 2px; }
+.recipe-favorite input:focus-visible + span { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .recipe-favorite svg { width: 18px; color: var(--accent); }
 .recipe-ingredients-head,.recipe-preview-head,.recipe-ingredient-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .recipe-ingredients-head { margin-top: 4px; }
@@ -656,6 +656,15 @@ button { touch-action: manipulation; }
 .theme-vika .weight-goal-card,.theme-vika .weight-empty,.theme-vika .replace-hint,.theme-vika .recipe-version-note,.theme-vika .app-update,.theme-vika .recipe-empty,.theme-vika .workouts-empty,.theme-vika .daily-message-card.has-message { border-color: var(--accent-border); }
 .theme-vika .history-modes button.active,.theme-vika .weight-periods button.active,.theme-vika .analytics-periods button.active,.theme-vika .product-type-filters button.active,.theme-vika .habit-days button.active,.theme-vika .difficulty-quick button.active { color: var(--on-accent); }
 .theme-vika .chart-grid-line { stroke: var(--border); }
+
+/* Theme tokens keep all interactive accents in one palette. */
+:root { --accent-soft: #dbe8ae; --accent-muted: #3b4727; --accent-dark: var(--accent-muted); --border-accent: #66783c; --focus-ring: rgba(163,198,68,.7); --on-accent: #242a18; --track: #4a4a46; }
+.desktop-bg.theme-vika { --accent-soft: #FFD8E8; --accent-muted: #4b3640; --accent-dark: var(--accent-muted); --border-accent: #bd7b98; --focus-ring: rgba(242,167,195,.78); --on-accent: #3c2630; --track: var(--border); }
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.recipe-favorite input:focus-visible + span { outline-color: var(--focus-ring); }
+.search:focus-within { outline-color: var(--focus-ring); }
+.progress,.mini-progress,.goal-progress { background: var(--track); }
+.storage-status.supabase,.day-empty,.weight-goal-card,.weight-empty,.replace-hint,.recipe-version-note,.app-update,.recipe-empty,.workouts-empty,.daily-message-card.has-message,.toast,.recipe-favorite input:checked + span { border-color: var(--border-accent); }
+.history-modes button.active,.weight-periods button.active,.analytics-periods button.active,.product-type-filters button.active,.habit-days button.active,.difficulty-quick button.active,.profile-switch button.active,.meal-tabs button.active,.filter.active,.bottom-nav button.active,.primary { color: var(--on-accent); }
 
 @media (max-width: 374px) {
   .daily-message-card,.tomorrow-message-card { padding: 14px; }

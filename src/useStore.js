@@ -7,7 +7,7 @@ const failure = reason => {
   if (/401|403|permission|jwt|auth/i.test(text)) return { state: 'permission-error', title: 'Ошибка прав доступа', message: 'Проверьте PIN и войдите снова.' }
   return { state: 'connection-error', title: 'Ошибка подключения', message: 'Не удалось связаться с Supabase. Проверьте интернет и повторите попытку.' }
 }
-const statusText = state => ({ local: 'Локальный режим', offline: 'Оффлайн · последний снимок', connecting: 'Подключение к Supabase…', active: 'Синхронизация активна', 'connection-error': 'Ошибка подключения', 'permission-error': 'Ошибка прав доступа' }[state])
+const statusText = state => ({ local: 'Локальный режим', offline: 'Оффлайн · показываем сохранённое', connecting: 'Подключение к Supabase…', active: 'Синхронизация активна', 'connection-error': 'Ошибка подключения', 'permission-error': 'Ошибка прав доступа' }[state])
 
 export function useStore({ onError } = {}) {
   const [hasOfflineSnapshot, setHasOfflineSnapshot] = useState(() => storage.mode === 'supabase' && hasSupabaseSnapshot())

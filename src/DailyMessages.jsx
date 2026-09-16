@@ -66,7 +66,7 @@ export function DailyMessages({ viewer, date, data, update, notify }) {
 
   if (viewer.id === DANYA_ID) {
     const message = data.directMessages.find(item => item.fromUserId === VIKA_ID && item.toUserId === DANYA_ID && item.showDate === date)
-    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Сегодня послания нет" />
+    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Сегодня пока без послания" />
   }
   return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока нет посланий" />
 }
