@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { cacheState, cacheSupabaseSnapshot, emptyState, hasSupabaseSnapshot, readSupabaseSnapshot } from './services/localStorageService'
+import { cacheState, cacheSupabaseSnapshot, emptyState, hasSupabaseSnapshot, readLastSuccessfulSync, readSupabaseSnapshot, recordLastSuccessfulSync } from './services/localStorageService'
 import { storage } from './services/storage'
 
 const failure = reason => {
@@ -16,27 +16,32 @@ export function useStore({ onError } = {}) {
   const [error, setError] = useState('')
   const [syncState, setSyncState] = useState(storage.mode === 'local' ? 'local' : navigator.onLine ? 'connecting' : 'offline')
   const [errorTitle, setErrorTitle] = useState('')
+  const [lastSuccessfulSync, setLastSuccessfulSync] = useState(readLastSuccessfulSync)
   const snapshot = useRef(data)
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+  const markSynced = useCallback(() => {
+    const timestamp = new Date().toISOString()
+    recordLastSuccessfulSync(timestamp); setLastSuccessfulSync(timestamp)
+  }, [])
 
   useEffect(() => {
     if (storage.mode === 'supabase' && !navigator.onLine) { setLoading(false); setSyncState('offline'); return undefined }
     if (storage.mode === 'supabase' && !storage.session()) { setLoading(false); setSyncState('connecting'); return undefined }
     let active = true
-    storage.load().then(next => { if (active) { snapshot.current = next; if (storage.mode === 'local') cacheState(next, storage.mode); else { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); if (!storage.hasLocalMigration) cacheState(next, storage.mode) } setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') } })
+    storage.load().then(next => { if (active) { snapshot.current = next; if (storage.mode === 'local') cacheState(next, storage.mode); else { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); if (!storage.hasLocalMigration) cacheState(next, storage.mode); markSynced() } setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') } })
       .catch(reason => { if (active) { const next = failure(reason); setSyncState(next.state); setErrorTitle(next.title); setError(next.message); onErrorRef.current?.(next.message) } })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [])
+  }, [markSynced])
 
   const reload = useCallback(async () => {
     if (storage.mode === 'supabase' && !navigator.onLine) { setLoading(false); setSyncState('offline'); return }
     setLoading(true); setSyncState('connecting')
-    try { const next = await storage.load(); snapshot.current = next; if (storage.mode === 'local') cacheState(next, storage.mode); else { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); if (!storage.hasLocalMigration) cacheState(next, storage.mode) } setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') }
+    try { const next = await storage.load(); snapshot.current = next; if (storage.mode === 'local') cacheState(next, storage.mode); else { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); if (!storage.hasLocalMigration) cacheState(next, storage.mode); markSynced() } setData(next); setSyncState(storage.mode === 'local' ? 'local' : 'active'); setError('') }
     catch (reason) { const next = failure(reason); setSyncState(next.state); setErrorTitle(next.title); setError(next.message) }
     finally { setLoading(false) }
-  }, [])
+  }, [markSynced])
 
   useEffect(() => {
     if (storage.mode !== 'supabase') return undefined
@@ -56,26 +61,26 @@ export function useStore({ onError } = {}) {
     setData(previous => {
       const next = fn(previous); const before = snapshot.current
       snapshot.current = next; if (storage.mode === 'local' || !storage.hasLocalMigration) cacheState(next, storage.mode)
-      Promise.resolve(storage.save(next, before)).then(() => { if (storage.mode === 'supabase') { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); setSyncState('active') } }).catch(reason => { const problem = failure(reason); setSyncState(problem.state); setErrorTitle(problem.title); setError(problem.message); onErrorRef.current?.(problem.message) })
+      Promise.resolve(storage.save(next, before)).then(() => { if (storage.mode === 'supabase') { cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); setSyncState('active'); markSynced() } }).catch(reason => { const problem = failure(reason); setSyncState(problem.state); setErrorTitle(problem.title); setError(problem.message); onErrorRef.current?.(problem.message) })
       return next
     })
     return true
-  }, [])
+  }, [markSynced])
 
   const migrateLocalData = useCallback(async () => {
     if (storage.mode !== 'supabase' || !storage.hasLocalMigration) return false
     setLoading(true); setSyncState('connecting')
     try {
       const next = await storage.migrateLocalData(snapshot.current)
-      snapshot.current = next; cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); setData(next); setSyncState('active'); return true
+      snapshot.current = next; cacheSupabaseSnapshot(next); setHasOfflineSnapshot(true); setData(next); setSyncState('active'); markSynced(); return true
     } catch (reason) {
       const problem = failure(reason); setSyncState(problem.state); setErrorTitle(problem.title); setError(problem.message); return false
     } finally { setLoading(false) }
-  }, [])
+  }, [markSynced])
   const dismissLocalMigration = useCallback(() => {
     storage.dismissLocalMigration?.()
     cacheState(snapshot.current, storage.mode)
   }, [])
 
-  return { data, update, loading, error, errorTitle, mode: storage.mode, status: statusText(syncState), syncState, isOffline: syncState === 'offline', hasOfflineSnapshot, reload, hasLocalMigration: Boolean(storage.hasLocalMigration), migrateLocalData, dismissLocalMigration }
+  return { data, update, loading, error, errorTitle, mode: storage.mode, status: statusText(syncState), syncState, isOffline: syncState === 'offline', hasOfflineSnapshot, lastSuccessfulSync, reload, hasLocalMigration: Boolean(storage.hasLocalMigration), migrateLocalData, dismissLocalMigration }
 }

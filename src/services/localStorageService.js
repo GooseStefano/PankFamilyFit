@@ -3,6 +3,7 @@ import { INITIAL_FOODS, INITIAL_GOALS, INITIAL_WEIGHT_ENTRIES } from '../data'
 export const STORAGE_KEY = 'pank-family-fit-v01'
 export const CACHE_ORIGIN_KEY = 'pff-cache-origin'
 const SUPABASE_SNAPSHOT_KEY = 'pff-supabase-snapshot-v1'
+const LAST_SUCCESSFUL_SYNC_KEY = 'pff-last-successful-sync'
 const SESSION_KEY = 'pff-session'
 const DEV_PIN_HASHES = {
   danya: 'e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c',
@@ -27,6 +28,8 @@ export const readSupabaseSnapshot = () => {
 }
 export const hasSupabaseSnapshot = () => Boolean(localStorage.getItem(SUPABASE_SNAPSHOT_KEY))
 export const cacheSupabaseSnapshot = state => localStorage.setItem(SUPABASE_SNAPSHOT_KEY, JSON.stringify(state))
+export const readLastSuccessfulSync = () => localStorage.getItem(LAST_SUCCESSFUL_SYNC_KEY) || ''
+export const recordLastSuccessfulSync = value => localStorage.setItem(LAST_SUCCESSFUL_SYNC_KEY, value)
 
 const sha256 = async value => {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))

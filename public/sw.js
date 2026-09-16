@@ -1,4 +1,5 @@
-const CACHE_NAME = 'pankfit-shell-v0.11.1'
+const CACHE_PREFIX = 'pankfit-shell-'
+const CACHE_NAME = `${CACHE_PREFIX}__APP_VERSION__`
 const CORE_SHELL = [
   '/',
   '/index.html',
@@ -16,12 +17,12 @@ const ownUrl = value => {
 
 const cacheUrls = async urls => {
   const cache = await caches.open(CACHE_NAME)
-  await Promise.all(urls.filter(Boolean).map(url => cache.add(url).catch(() => undefined)))
+  await Promise.all(urls.filter(Boolean).map(url => cache.add(new Request(url, { cache: 'reload' })).catch(() => undefined)))
 }
 
 const cacheProductionShell = async () => {
   const cache = await caches.open(CACHE_NAME)
-  await cache.addAll(CORE_SHELL)
+  await cache.addAll(CORE_SHELL.map(url => new Request(url, { cache: 'reload' })))
   const index = await cache.match('/index.html')
   const html = await index?.text()
   const assets = [...(html || '').matchAll(/(?:src|href)="([^"]+)"/g)]
@@ -32,19 +33,19 @@ const cacheProductionShell = async () => {
 
 self.addEventListener('install', event => {
   event.waitUntil(cacheProductionShell())
-  self.skipWaiting()
 })
 
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
 })
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'CACHE_ASSETS') event.waitUntil(cacheUrls(event.data.urls || []))
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
 })
 
 self.addEventListener('fetch', event => {

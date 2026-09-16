@@ -3,10 +3,12 @@ import {
   Apple, Archive, CalendarDays, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, CircleUserRound,
   Clock3, CookingPot, Copy, FileQuestion, Flame, History, LogOut, MessageSquareText, PackageOpen,
   PackagePlus, Pencil, Plus, Search, Settings, SlidersHorizontal, Star, Trash2, Utensils, X,
-  Scale, Dumbbell,
+  Scale, Dumbbell, RefreshCw,
 } from 'lucide-react'
 import { CATEGORIES, MEALS, UNIT_LABELS, USERS, WEIGHT_PACES, amountInBase, calculate, calculateRecipe, filterWeightPeriod, formatWeekRange, getGoal, getNutritionAnalytics, getWeekReport, getWeekStart, getWeightGoal, getWeightGoalProgress, getWeightStats, prettyDate, shiftDate, todayISO } from './data'
 import { useStore } from './useStore'
+import { usePwaUpdate } from './usePwaUpdate'
+import { APP_VERSION } from './appVersion'
 import { storage } from './services/storage'
 import WorkoutPage from './WorkoutPage'
 import { DailyMessages, PhraseSettings, TomorrowMessageSettings } from './DailyMessages'
@@ -814,7 +816,12 @@ function HabitSettings({ data, update, notify }) {
   return <section className="settings-card habit-settings" aria-labelledby="habit-settings-title"><div className="card-title"><div><span className="section-label">ПРИВЫЧКИ</span><h2 id="habit-settings-title">Ежедневный чеклист</h2></div><CheckCircle2 aria-hidden="true" /></div><p className="form-hint">Даня управляет привычками для себя, Вики или обоих. Каждый отмечает только свои выполнения.</p><button className="secondary wide" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить привычку</button>{habits.length ? <div className="habit-settings-list">{habits.map(habit => <article key={habit.id} className={habit.isActive ? '' : 'archived'}><div><strong>{habit.name}</strong><span>{audience(habit.visibility)} · {habit.weekdays.map(day => WEEKDAYS.find(([key]) => key === day)?.[1]).filter(Boolean).join(', ')}</span></div><div><button aria-label={`Изменить привычку ${habit.name}`} onClick={() => setModal({ habit })}><Pencil /></button><button aria-label={`${habit.isActive ? 'Архивировать' : 'Восстановить'} привычку ${habit.name}`} onClick={() => archive(habit)}>{habit.isActive ? <Archive /> : <CheckCircle2 />}</button></div></article>)}</div> : <p className="insight-empty">Добавьте лёгкую привычку, если она помогает помнить о важном.</p>}{modal && <HabitModal initial={modal.habit || null} onClose={() => setModal(null)} onSave={save} />}</section>
 }
 
-function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
+function AppInfo({ mode, isOffline, lastSuccessfulSync, updateAvailable, onUpdate }) {
+  const syncTime = lastSuccessfulSync ? new Date(lastSuccessfulSync).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : 'ещё не было'
+  return <section className="settings-card app-info" aria-labelledby="app-info-title"><div className="card-title"><div><span className="section-label">ПРИЛОЖЕНИЕ</span><h2 id="app-info-title">Версия и обновления</h2></div><RefreshCw aria-hidden="true" /></div><dl><div><dt>Версия</dt><dd>{APP_VERSION}</dd></div><div><dt>Данные</dt><dd>{mode === 'supabase' ? 'Supabase' : 'Локально'}</dd></div><div><dt>Сеть</dt><dd>{isOffline ? 'Оффлайн' : 'Онлайн'}</dd></div><div><dt>Последняя синхронизация</dt><dd>{mode === 'supabase' ? syncTime : 'Не требуется'}</dd></div></dl>{updateAvailable && <div className="app-update" role="status" aria-atomic="true"><div><strong>Доступно обновление приложения</strong><span>Новая версия готова к установке.</span></div><button className="primary" onClick={onUpdate}><RefreshCw aria-hidden="true" />Обновить</button></div>}<p className="form-hint">Если обновление не появилось, откройте приложение при доступном интернете и подождите несколько секунд.</p></section>
+}
+
+function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration, mode, isOffline, lastSuccessfulSync, updateAvailable, onUpdate }) {
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <NutritionPlanSettings viewer={viewer} data={data} update={update} notify={notify} />}
     <WeightGoalSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.role === 'admin' && <HabitSettings data={data} update={update} notify={notify} />}
@@ -822,6 +829,7 @@ function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigratio
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}
     {viewer.role === 'admin' && <BackupSettings data={data} update={update} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}
+    <AppInfo mode={mode} isOffline={isOffline} lastSuccessfulSync={lastSuccessfulSync} updateAvailable={updateAvailable} onUpdate={onUpdate} />
     <section className="settings-card"><div className="card-title"><div><span className="section-label">УСТРОЙСТВО</span><h2>Сеанс</h2></div><CircleUserRound aria-hidden="true" /></div><button className="danger wide" onClick={onLogout}><LogOut aria-hidden="true" />Выйти на этом устройстве</button></section>
   </>
 }
@@ -841,7 +849,8 @@ export default function App() {
   const [profile, setProfile] = useState(viewer || USERS[0]); const [page, setPage] = useState('today'); const [date, setDate] = useState(todayISO())
   const [toast, setToast] = useState(''); const toastTimer = useRef(null)
   const notify = message => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(''), 2600) }
-  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, isOffline, hasOfflineSnapshot, reload, hasLocalMigration, migrateLocalData, dismissLocalMigration } = useStore({ onError: notify })
+  const { data, update, loading, error: storageError, errorTitle, mode, status, syncState, isOffline, hasOfflineSnapshot, lastSuccessfulSync, reload, hasLocalMigration, migrateLocalData, dismissLocalMigration } = useStore({ onError: notify })
+  const { updateAvailable, applyUpdate } = usePwaUpdate()
   useEffect(() => () => clearTimeout(toastTimer.current), [])
   if (!viewer) return <Login offline={isOffline} hasOfflineSnapshot={hasOfflineSnapshot} onLogin={user => { setViewer(user); setProfile(user); reload() }} />
   const gotoDate = value => { setDate(value); setPage('today') }
@@ -857,7 +866,7 @@ export default function App() {
       {page === 'weight' && <WeightPage viewer={viewer} profile={profile} setProfile={setProfile} data={data} update={update} notify={notify} />}
       {page === 'workouts' && viewer.id === 'danya' && <WorkoutPage viewer={viewer} data={data} update={update} notify={notify} />}
       {page === 'products' && viewer.role === 'admin' && <ProductsPage viewer={viewer} data={data} update={update} notify={notify} />}
-      {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} />}
+      {page === 'settings' && <SettingsPage viewer={viewer} data={data} update={update} onLogout={logout} notify={notify} hasLocalMigration={hasLocalMigration} migrateLocalData={migrateLocalData} dismissLocalMigration={dismissLocalMigration} mode={mode} isOffline={isOffline} lastSuccessfulSync={lastSuccessfulSync} updateAvailable={updateAvailable} onUpdate={applyUpdate} />}
     </fieldset>
   </div><BottomNav viewer={viewer} page={page} setPage={setPage} /><Toast message={toast} /></main></div>
 }

@@ -403,6 +403,14 @@ button { touch-action: manipulation; }
 .habit-days button.active { border-color: var(--accent); background: var(--accent); color: #242a18; }
 .habit-settings-list { display: flex; flex-direction: column; margin-top: 12px; }
 .habit-settings-list article { min-width: 0; padding: 10px 0; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.app-info dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
+.app-info dl div { min-width: 0; padding: 10px; border-radius: 12px; background: var(--surface2); }
+.app-info dt { color: var(--muted); font-size: 10px; font-weight: 700; }
+.app-info dd { margin: 3px 0 0; overflow-wrap: anywhere; color: var(--text); font-size: 12px; font-weight: 700; }
+.app-update { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px; border: 1px solid #66783c; border-radius: 13px; background: var(--accent-dark); }
+.app-update > div { min-width: 0; display: grid; gap: 3px; }
+.app-update span { color: var(--muted); font-size: 11px; }
+.app-update .primary { flex: none; min-height: 44px; padding: 0 12px; }
 .habit-settings-list article.archived { opacity: .62; }
 .habit-settings-list article > div:first-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
 .habit-settings-list span { color: var(--muted); font-size: 10px; line-height: 1.4; }

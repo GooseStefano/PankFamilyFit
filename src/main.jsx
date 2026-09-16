@@ -11,7 +11,16 @@ createRoot(document.getElementById('root')).render(
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(() => navigator.serviceWorker.ready)
+      .then(registration => {
+        const announce = () => window.dispatchEvent(new CustomEvent('pwa-registration', { detail: registration }))
+        announce()
+        registration.addEventListener('updatefound', () => {
+          const installing = registration.installing
+          installing?.addEventListener('statechange', () => { if (installing.state === 'installed') window.setTimeout(announce, 0) })
+        })
+        if (navigator.onLine) registration.update().catch(() => undefined)
+        return navigator.serviceWorker.ready
+      })
       .then(registration => {
         const urls = [...document.querySelectorAll('script[src], link[rel="stylesheet"][href]')]
           .map(element => new URL(element.src || element.href, window.location.origin))
