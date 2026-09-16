@@ -44,7 +44,7 @@ export const localStorageService = {
   async login(pin) {
     const hash = await sha256(pin)
     const id = Object.entries(DEV_PIN_HASHES).find(([, pinHash]) => pinHash === hash)?.[0]
-    if (!id) throw new Error('Неверный PIN. Попробуйте ещё раз.')
+    if (!id) throw new Error('PIN не подошёл. Попробуй ещё раз.')
     const marker = { id, mode: 'local' }
     localStorage.setItem(SESSION_KEY, JSON.stringify(marker))
     return marker

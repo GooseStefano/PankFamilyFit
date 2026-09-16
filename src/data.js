@@ -153,7 +153,7 @@ export function getWeightGoalProgress(goal, entries, userId, referenceDate = tod
   const stats = getWeightStats(entries, userId, referenceDate)
   const current = stats.latest ? Number(stats.latest.weight) : null
   const pace = WEIGHT_PACES[goal.pace] || WEIGHT_PACES.normal
-  if (current === null) return { goal, pace, current: null, remaining: null, percent: null, weeks: null, statusKey: 'not-started', assessment: 'Добавьте запись веса, чтобы увидеть ориентир прогресса.' }
+  if (current === null) return { goal, pace, current: null, remaining: null, percent: null, weeks: null, statusKey: 'not-started', assessment: 'Добавь запись веса, чтобы увидеть ориентир прогресса.' }
   const target = Number(goal.targetWeight)
   const sinceStart = stats.records.filter(entry => entry.date >= goal.startDate)
   const baseline = sinceStart[0] || stats.latest

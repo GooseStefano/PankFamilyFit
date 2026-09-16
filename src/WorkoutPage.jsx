@@ -117,11 +117,11 @@ function ExerciseModal({ initial, library, muscleGroup, onClose, onSave }) {
         <label htmlFor="exercise-name">Название упражнения
           <div className="search exercise-search"><Search aria-hidden="true" /><input id="exercise-name" autoFocus value={name} onChange={event => { setName(event.target.value); setLibraryId(null) }} placeholder="Например, жим лёжа" /></div>
         </label>
-        {!initial && (library.length === 0 ? <div className="compact-empty exercise-library-empty"><Dumbbell aria-hidden="true" /><strong>База упражнений пуста</strong><span>Введите название — упражнение сохранится в базе.</span></div> : name.trim() && visible.length > 0 ? <div className="exercise-library-results" aria-label="Упражнения из базы">{visible.map(item => <button type="button" key={item.id} onClick={() => choose(item)}><Dumbbell aria-hidden="true" /><span><strong>{item.name}</strong><small>{MUSCLE_GROUPS[item.defaultMuscleGroup] || 'Без группы'}</small></span></button>)}</div> : null)}
+        {!initial && (library.length === 0 ? <div className="compact-empty exercise-library-empty"><Dumbbell aria-hidden="true" /><strong>База упражнений пуста</strong><span>Введи название — упражнение сохранится в базе.</span></div> : name.trim() && visible.length > 0 ? <div className="exercise-library-results" aria-label="Упражнения из базы">{visible.map(item => <button type="button" key={item.id} onClick={() => choose(item)}><Dumbbell aria-hidden="true" /><span><strong>{item.name}</strong><small>{MUSCLE_GROUPS[item.defaultMuscleGroup] || 'Без группы'}</small></span></button>)}</div> : null)}
         <div className="form-grid workout-plan-grid"><label>Подходы<input type="number" inputMode="numeric" min="1" max="20" value={plannedSets} onChange={event => setPlannedSets(event.target.value)} /></label><label>Плановый вес, кг<input type="number" inputMode="decimal" min="0" step="0.5" value={plannedWeight} onChange={event => setPlannedWeight(event.target.value)} placeholder="Не указан" /></label></div>
         <div className="form-grid"><label>Повторы от<input type="number" inputMode="numeric" min="1" value={repMin} onChange={event => setRepMin(event.target.value)} /></label><label>Повторы до<input type="number" inputMode="numeric" min="1" value={repMax} onChange={event => setRepMax(event.target.value)} /></label></div>
         <label>Комментарий к плану<textarea value={planComment} onChange={event => setPlanComment(event.target.value)} placeholder="Техника, темп или цель" /></label>
-        <div className="field-error" role="alert">{touched && invalid ? 'Заполните название, 1–20 подходов и корректный диапазон повторений.' : ''}</div>
+        <div className="field-error" role="alert">{touched && invalid ? 'Заполни название, 1–20 подходов и корректный диапазон повторений.' : ''}</div>
         <button className="primary wide" disabled={invalid}>{initial ? 'Сохранить изменения' : 'Добавить упражнение'}</button>
       </form>
     </section>
@@ -285,7 +285,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
   return <>
     <header className="page-head workout-page-head"><p className="eyebrow">ДНЕВНИК ДАНИ</p><h1>Тренировки</h1><p>План, подходы и прогресс без лишнего шума.</p></header>
     <WorkoutDatePicker date={date} setDate={setDate} />
-    {noWorkouts && <div className="workouts-empty"><Dumbbell aria-hidden="true" /><div><strong>Тренировок пока нет</strong><span>Выберите план и добавьте первое упражнение.</span></div></div>}
+    {noWorkouts && <div className="workouts-empty"><Dumbbell aria-hidden="true" /><div><strong>Тренировок пока нет</strong><span>Выбери план и добавь первое упражнение.</span></div></div>}
     <section className="workout-details">
       <div className="form-grid"><label>Тип недели<select value={weekType} onChange={event => setWeekType(event.target.value)}>{Object.entries(WEEK_TYPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Группа мышц<select value={muscleGroup} onChange={event => setMuscleGroup(event.target.value)}>{Object.entries(MUSCLE_GROUPS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
       <div className="form-grid workout-meta-grid"><label>Самочувствие, 1–10<input type="number" inputMode="numeric" min="1" max="10" value={wellbeingScore} onChange={event => setWellbeingScore(event.target.value)} placeholder="Опционально" /></label><label>Комментарий<textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Как прошла тренировка" /></label></div>
@@ -298,7 +298,7 @@ export default function WorkoutPage({ viewer, data, update, notify }) {
     {exercises.length ? <div className="workout-exercise-list">{exercises.map(exercise => {
       const previous = sameExercise(exercise, previousExercises)
       return <WorkoutExerciseCard key={exercise.id} exercise={exercise} sets={exerciseSets(exercise, data.workoutSets)} previous={previous} previousSets={previous ? exerciseSets(previous, data.workoutSets) : []} history={exerciseHistory(exercise, data.workoutSessions.filter(item => item.userId === viewer.id), data.workoutExercises, data.workoutSets, date)} updateSet={updateSet} onEdit={() => setModal({ exercise })} onDelete={() => removeExercise(exercise)} />
-    })}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавьте упражнение вручную или перенесите прошлый план.</span></div>}
+    })}</div> : <div className="workout-exercises-empty"><Dumbbell aria-hidden="true" /><strong>В тренировке нет упражнений</strong><span>Добавь упражнение вручную или перенеси прошлый план.</span></div>}
     <div className="workout-primary-actions"><button className="primary" onClick={() => setModal({})}><Plus aria-hidden="true" />Упражнение</button><button className="secondary" disabled={!currentSession} onClick={copyReport}><Copy aria-hidden="true" />Скопировать отчёт</button></div>
     {modal && <ExerciseModal initial={modal.exercise || null} library={data.exerciseLibrary} muscleGroup={muscleGroup} onClose={() => setModal(null)} onSave={saveExercise} />}
   </>

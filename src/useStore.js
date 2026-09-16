@@ -5,7 +5,7 @@ import { storage } from './services/storage'
 const failure = reason => {
   const text = String(reason?.message || reason || '')
   if (/401|403|permission|jwt|auth/i.test(text)) return { state: 'permission-error', title: 'Ошибка прав доступа', message: 'Проверьте PIN и войдите снова.' }
-  return { state: 'connection-error', title: 'Ошибка подключения', message: 'Не удалось связаться с Supabase. Проверьте интернет и повторите попытку.' }
+  return { state: 'connection-error', title: 'Ошибка подключения', message: 'Не получилось подключиться. Проверь интернет и попробуй ещё раз.' }
 }
 const statusText = state => ({ local: 'Локальный режим', offline: 'Оффлайн · показываем сохранённое', connecting: 'Подключение к Supabase…', active: 'Синхронизация активна', 'connection-error': 'Ошибка подключения', 'permission-error': 'Ошибка прав доступа' }[state])
 

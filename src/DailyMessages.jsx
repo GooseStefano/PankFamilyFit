@@ -37,7 +37,7 @@ function TomorrowMessageForm({ data, update, notify, inSettings = false }) {
   }
   return <section className={inSettings ? 'settings-card tomorrow-message-card tomorrow-message-settings' : 'tomorrow-message-card'} aria-labelledby="tomorrow-message-title">
     <div className="daily-message-heading"><div><span className="section-label">{inSettings ? 'ПОСЛАНИЕ' : `НА ${formatShortDate(tomorrow).toUpperCase()}`}</span><h2 id="tomorrow-message-title">{inSettings ? 'Послание Дане' : 'Написать Дане на завтра'}</h2></div><Send aria-hidden="true" /></div>
-    {!existing && !draft ? <p className="tomorrow-empty">Вы ещё не написали послание на завтра.</p> : existing && inSettings ? <p className="tomorrow-empty">На {formatShortDate(tomorrow)} послание сохранено. Его можно изменить.</p> : null}
+    {!existing && !draft ? <p className="tomorrow-empty">Ты ещё не написала послание на завтра.</p> : existing && inSettings ? <p className="tomorrow-empty">На {formatShortDate(tomorrow)} послание сохранено. Его можно изменить.</p> : null}
     <form onSubmit={submit}><label htmlFor="tomorrow-message">Короткое послание<textarea id="tomorrow-message" maxLength={MAX_MESSAGE_LENGTH} value={draft} onChange={event => setDraft(event.target.value)} placeholder="Что Даня прочитает завтра?" /></label>
       <div className="message-form-footer"><span>{draft.length}/{MAX_MESSAGE_LENGTH}</span><button className="secondary" disabled={!clean || unchanged}>Сохранить</button></div></form>
   </section>
@@ -68,7 +68,7 @@ export function DailyMessages({ viewer, date, data, update, notify }) {
     const message = data.directMessages.find(item => item.fromUserId === VIKA_ID && item.toUserId === DANYA_ID && item.showDate === date)
     return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Сегодня пока без послания" />
   }
-  return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока нет посланий" />
+  return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока послания нет" />
 }
 
 function PhraseModal({ initial, onClose, onSave }) {
@@ -104,7 +104,7 @@ export function PhraseSettings({ viewer, data, update, notify }) {
     <div className="card-title"><div><span className="section-label">ПОСЛАНИЯ ДНЯ</span><h2 id="phrase-settings-title">Фразы для Викуси</h2></div><Heart aria-hidden="true" /></div>
     <p className="phrase-settings-intro">Активные фразы показываются по кругу без повторов.</p>
     <button className="primary wide" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить фразу</button>
-    {phrases.length === 0 ? <div className="phrase-list-empty"><MessageSquareText aria-hidden="true" /><strong>Список фраз пуст</strong><span>Добавьте первую фразу для Викуси.</span></div> : <div className="phrase-groups">
+    {phrases.length === 0 ? <div className="phrase-list-empty"><MessageSquareText aria-hidden="true" /><strong>Список фраз пуст</strong><span>Добавь первую фразу для Викуси.</span></div> : <div className="phrase-groups">
       <section><div className="phrase-group-title"><strong>Активные</strong><span>{active.length}</span></div>{active.length ? <div className="phrase-list">{active.map(phrase => <PhraseRow key={phrase.id} phrase={phrase} onEdit={() => setModal({ phrase })} onToggle={() => toggle(phrase)} />)}</div> : <p className="phrase-group-empty">Нет активных фраз.</p>}</section>
       <section><div className="phrase-group-title"><strong>Архив</strong><span>{archived.length}</span></div>{archived.length ? <div className="phrase-list archived">{archived.map(phrase => <PhraseRow key={phrase.id} phrase={phrase} onEdit={() => setModal({ phrase })} onToggle={() => toggle(phrase)} />)}</div> : <p className="phrase-group-empty">Архив пуст.</p>}</section>
     </div>}
