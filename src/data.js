@@ -1,6 +1,6 @@
 export const USERS = [
   { id: 'danya', name: 'Даня', role: 'admin' },
-  { id: 'vika', name: 'Вика', role: 'member' },
+  { id: 'vika', name: 'Викуся', role: 'member' },
 ]
 
 export const CATEGORIES = ['Все', 'Мясо', 'Рыба', 'Яйца', 'Молочка', 'Крупы', 'Макароны/хлеб', 'Овощи', 'Фрукты', 'Сладкое', 'Соусы', 'Масла', 'Напитки', 'Готовое', 'Другое']

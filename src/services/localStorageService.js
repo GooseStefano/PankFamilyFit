@@ -7,7 +7,7 @@ const LAST_SUCCESSFUL_SYNC_KEY = 'pff-last-successful-sync'
 const SESSION_KEY = 'pff-session'
 const DEV_PIN_HASHES = {
   danya: 'e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c',
-  vika: 'db49d04d733d3da455dff99d7f3e07b766043ef16056f24768bf719fa6f8c394',
+  vika: '5f1ec88310b11743ba6dfd66e515787b64eb476fd2bf5dc169f1f90abbd38101',
 }
 
 export const emptyState = (withDemo = false) => ({

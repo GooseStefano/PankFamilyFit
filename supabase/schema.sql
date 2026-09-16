@@ -34,7 +34,7 @@ create index direct_messages_recipient_date_idx on direct_messages(to_user_id,sh
 create index habit_completions_user_date_idx on habit_completions(user_id,date desc);
 
 insert into app_users (id,name,role) values ('00000000-0000-0000-0000-000000000001','Даня','admin'),('00000000-0000-0000-0000-000000000002','Вика','member');
-insert into pin_access (user_id,pin_hash,role) values ('00000000-0000-0000-0000-000000000001','e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c','admin'),('00000000-0000-0000-0000-000000000002','db49d04d733d3da455dff99d7f3e07b766043ef16056f24768bf719fa6f8c394','member');
+insert into pin_access (user_id,pin_hash,role) values ('00000000-0000-0000-0000-000000000001','e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c','admin'),('00000000-0000-0000-0000-000000000002','5f1ec88310b11743ba6dfd66e515787b64eb476fd2bf5dc169f1f90abbd38101','member');
 insert into nutrition_goals(user_id,start_date,calories,protein,fat,carbs) values ('00000000-0000-0000-0000-000000000001','2026-09-08',2200,160,70,230),('00000000-0000-0000-0000-000000000002','2026-09-08',1600,110,50,160);
 
 alter table app_users enable row level security;

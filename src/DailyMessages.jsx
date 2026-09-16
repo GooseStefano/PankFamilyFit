@@ -66,7 +66,7 @@ export function DailyMessages({ viewer, date, data, update, notify }) {
 
   if (viewer.id === DANYA_ID) {
     const message = data.directMessages.find(item => item.fromUserId === VIKA_ID && item.toUserId === DANYA_ID && item.showDate === date)
-    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Вики" text={message?.text} emptyText="Сегодня послания нет" />
+    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Сегодня послания нет" />
   }
   return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока нет посланий" />
 }
@@ -76,7 +76,7 @@ function PhraseModal({ initial, onClose, onSave }) {
   const clean = text.trim()
   const submit = event => { event.preventDefault(); if (clean) onSave(clean) }
   return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet phrase-sheet" role="dialog" aria-modal="true" aria-labelledby="phrase-modal-title">
-    <header><div><span className="section-label">ДЛЯ ВИКИ</span><h2 id="phrase-modal-title">{initial ? 'Изменить фразу' : 'Новая фраза'}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
+    <header><div><span className="section-label">ДЛЯ ВИКУСИ</span><h2 id="phrase-modal-title">{initial ? 'Изменить фразу' : 'Новая фраза'}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
     <form onSubmit={submit}><label htmlFor="phrase-text">Текст фразы<textarea id="phrase-text" autoFocus maxLength={MAX_MESSAGE_LENGTH} value={text} onChange={event => setText(event.target.value)} placeholder="Напиши что-нибудь тёплое" /></label><div className="message-form-footer"><span>{text.length}/{MAX_MESSAGE_LENGTH}</span><button className="primary" disabled={!clean}>{initial ? 'Сохранить' : 'Добавить'}</button></div></form>
   </section></div>
 }
@@ -101,10 +101,10 @@ export function PhraseSettings({ viewer, data, update, notify }) {
     notify(phrase.isActive ? 'Фраза отключена' : 'Фраза восстановлена')
   }
   return <section className="settings-card phrase-settings" aria-labelledby="phrase-settings-title">
-    <div className="card-title"><div><span className="section-label">ПОСЛАНИЯ ДНЯ</span><h2 id="phrase-settings-title">Фразы для Вики</h2></div><Heart aria-hidden="true" /></div>
+    <div className="card-title"><div><span className="section-label">ПОСЛАНИЯ ДНЯ</span><h2 id="phrase-settings-title">Фразы для Викуси</h2></div><Heart aria-hidden="true" /></div>
     <p className="phrase-settings-intro">Активные фразы показываются по кругу без повторов.</p>
     <button className="primary wide" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить фразу</button>
-    {phrases.length === 0 ? <div className="phrase-list-empty"><MessageSquareText aria-hidden="true" /><strong>Список фраз пуст</strong><span>Добавьте первую фразу для Вики.</span></div> : <div className="phrase-groups">
+    {phrases.length === 0 ? <div className="phrase-list-empty"><MessageSquareText aria-hidden="true" /><strong>Список фраз пуст</strong><span>Добавьте первую фразу для Викуси.</span></div> : <div className="phrase-groups">
       <section><div className="phrase-group-title"><strong>Активные</strong><span>{active.length}</span></div>{active.length ? <div className="phrase-list">{active.map(phrase => <PhraseRow key={phrase.id} phrase={phrase} onEdit={() => setModal({ phrase })} onToggle={() => toggle(phrase)} />)}</div> : <p className="phrase-group-empty">Нет активных фраз.</p>}</section>
       <section><div className="phrase-group-title"><strong>Архив</strong><span>{archived.length}</span></div>{archived.length ? <div className="phrase-list archived">{archived.map(phrase => <PhraseRow key={phrase.id} phrase={phrase} onEdit={() => setModal({ phrase })} onToggle={() => toggle(phrase)} />)}</div> : <p className="phrase-group-empty">Архив пуст.</p>}</section>
     </div>}

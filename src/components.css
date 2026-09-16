@@ -651,6 +651,12 @@ button { touch-action: manipulation; }
 .phrase-group-empty { margin: 0; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 10px; text-align: center; }
 .phrase-sheet form { gap: 12px; }
 
+/* Accent borders inherit the active profile palette. */
+.theme-vika .storage-status.supabase,.theme-vika .recipe-favorite input:checked + span { border-color: var(--accent-border); }
+.theme-vika .weight-goal-card,.theme-vika .weight-empty,.theme-vika .replace-hint,.theme-vika .recipe-version-note,.theme-vika .app-update,.theme-vika .recipe-empty,.theme-vika .workouts-empty,.theme-vika .daily-message-card.has-message { border-color: var(--accent-border); }
+.theme-vika .history-modes button.active,.theme-vika .weight-periods button.active,.theme-vika .analytics-periods button.active,.theme-vika .product-type-filters button.active,.theme-vika .habit-days button.active,.theme-vika .difficulty-quick button.active { color: var(--on-accent); }
+.theme-vika .chart-grid-line { stroke: var(--border); }
+
 @media (max-width: 374px) {
   .daily-message-card,.tomorrow-message-card { padding: 14px; }
   .message-form-footer { align-items: flex-end; }
