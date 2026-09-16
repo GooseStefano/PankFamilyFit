@@ -154,7 +154,11 @@ export const supabaseService = {
     if (!configured) throw new Error('Supabase не настроен.')
     const { data, error } = await client.functions.invoke('pin-login', { body: { pin } })
     const token = data?.access_token || data?.token
-    if (error || !token || !data?.user?.id) throw new Error(data?.error || error?.message || 'Не удалось выполнить вход.')
+    if (error || !token || !data?.user?.id) {
+      const message = data?.error || error?.message || 'Не получилось войти.'
+      if (/non-2xx/i.test(message)) throw new Error('PIN не подошёл. Попробуй ещё раз.')
+      throw new Error(message)
+    }
     marker = { ...data.user, token, expiresAt: data.expiresAt, mode: 'supabase' }
     localStorage.setItem(SESSION_KEY, JSON.stringify(marker)); setToken(marker.token)
     return marker

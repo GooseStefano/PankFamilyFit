@@ -38,11 +38,11 @@ function Login({ onLogin, offline, hasOfflineSnapshot }) {
   const [busy, setBusy] = useState(false)
   const submit = async e => {
     e.preventDefault(); setBusy(true); setError('')
-    if (offline) { setError('Оффлайн: вход через Supabase недоступен. Подключитесь к интернету.'); setBusy(false); return }
+    if (offline) { setError('Оффлайн: вход через Supabase недоступен. Подключись к интернету.'); setBusy(false); return }
     try {
       const session = await storage.login(pin)
       onLogin(USERS.find(user => user.id === session.id) || { id: session.id, name: session.name, role: session.role })
-    } catch (reason) { setError(reason.message || 'Не удалось выполнить вход.'); setPin('') }
+    } catch (reason) { setError(reason.message || 'Не получилось войти.'); setPin('') }
     finally { setBusy(false) }
   }
   return <main className="login-shell"><section className="login-card">
