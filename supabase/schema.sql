@@ -18,6 +18,8 @@ create table workout_sets (id uuid primary key default gen_random_uuid(), workou
 create table message_phrases (id uuid primary key default gen_random_uuid(), text text not null check(length(trim(text)) > 0), created_by uuid not null references app_users(id), target_user_id uuid not null references app_users(id), is_active boolean not null default true, shown_count integer not null default 0 check(shown_count >= 0), last_shown_date date, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create table daily_phrase_shows (id uuid primary key default gen_random_uuid(), phrase_id uuid not null references message_phrases(id), target_user_id uuid not null references app_users(id), date date not null, created_at timestamptz not null default now(), unique(target_user_id,date));
 create table direct_messages (id uuid primary key default gen_random_uuid(), from_user_id uuid not null references app_users(id), to_user_id uuid not null references app_users(id), show_date date not null, text text not null check(length(trim(text)) > 0), created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(from_user_id,to_user_id,show_date));
+create table habit_items (id uuid primary key default gen_random_uuid(), name text not null check(length(trim(name)) > 0), visibility text not null check(visibility in ('danya','vika','both')), weekdays jsonb not null default '[]'::jsonb, is_active boolean not null default true, created_by uuid not null references app_users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create table habit_completions (id uuid primary key default gen_random_uuid(), habit_item_id uuid not null references habit_items(id) on delete cascade, user_id uuid not null references app_users(id), date date not null, created_at timestamptz not null default now(), unique(habit_item_id,user_id,date));
 create index meal_entries_user_date_idx on meal_entries(user_id,date);
 create index nutrition_goals_user_date_idx on nutrition_goals(user_id,start_date desc);
 create index weight_entries_user_date_idx on weight_entries(user_id,date desc);
@@ -29,6 +31,7 @@ create index workout_sets_exercise_idx on workout_sets(workout_exercise_id,set_n
 create index message_phrases_target_active_idx on message_phrases(target_user_id,is_active,shown_count,created_at);
 create index daily_phrase_shows_target_date_idx on daily_phrase_shows(target_user_id,date desc);
 create index direct_messages_recipient_date_idx on direct_messages(to_user_id,show_date desc);
+create index habit_completions_user_date_idx on habit_completions(user_id,date desc);
 
 insert into app_users (id,name,role) values ('00000000-0000-0000-0000-000000000001','Даня','admin'),('00000000-0000-0000-0000-000000000002','Вика','member');
 insert into pin_access (user_id,pin_hash,role) values ('00000000-0000-0000-0000-000000000001','e95995d6e3f243779d317d32627e4a97c03ee94d95b9b91567133cb249d97b5c','admin'),('00000000-0000-0000-0000-000000000002','db49d04d733d3da455dff99d7f3e07b766043ef16056f24768bf719fa6f8c394','member');
@@ -51,6 +54,8 @@ alter table workout_sets enable row level security;
 alter table message_phrases enable row level security;
 alter table daily_phrase_shows enable row level security;
 alter table direct_messages enable row level security;
+alter table habit_items enable row level security;
+alter table habit_completions enable row level security;
 
 -- В production прямой доступ anon должен оставаться закрытым.
 -- PIN-проверку и CRUD выполняйте через Edge Function, которая выдаёт короткоживущий JWT
@@ -64,7 +69,7 @@ create or replace function set_updated_at() returns trigger language plpgsql as 
 create or replace function pff_apply_updated_at() returns void language plpgsql as $$
 declare table_name text;
 begin
-  foreach table_name in array array['food_items','meal_entries','daily_notes','weight_entries','weight_goals','workout_sessions','exercise_library','workout_exercises','workout_sets','message_phrases','direct_messages'] loop
+  foreach table_name in array array['food_items','meal_entries','daily_notes','weight_entries','weight_goals','workout_sessions','exercise_library','workout_exercises','workout_sets','habit_items','message_phrases','direct_messages'] loop
     execute format('drop trigger if exists %I on %I', table_name || '_updated_at', table_name);
     execute format('create trigger %I before update on %I for each row execute function set_updated_at()', table_name || '_updated_at', table_name);
   end loop;
@@ -93,3 +98,6 @@ create policy "phrases read recipient or admin" on message_phrases for select us
 create policy "phrases admin write" on message_phrases for all using (pff_is_admin()) with check (pff_is_admin());
 create policy "phrase shows recipient or admin" on daily_phrase_shows for all using (target_user_id = pff_user_id() or pff_is_admin()) with check (target_user_id = pff_user_id() or pff_is_admin());
 create policy "direct messages participants" on direct_messages for all using (from_user_id = pff_user_id() or to_user_id = pff_user_id() or pff_is_admin()) with check (from_user_id = pff_user_id() or pff_is_admin());
+create policy "habits read assigned" on habit_items for select using (pff_is_admin() or visibility = 'both' or (visibility = 'vika' and pff_user_id() = '00000000-0000-0000-0000-000000000002'));
+create policy "habits admin write" on habit_items for all using (pff_is_admin()) with check (pff_is_admin());
+create policy "habit completions own" on habit_completions for all using (pff_is_admin() or user_id = pff_user_id()) with check (pff_is_admin() or (user_id = pff_user_id() and exists (select 1 from habit_items habit where habit.id = habit_completions.habit_item_id and (habit.visibility = 'both' or (habit.visibility = 'vika' and pff_user_id() = '00000000-0000-0000-0000-000000000002')))));

@@ -339,6 +339,31 @@ function DayNote({ value, onSave, onDelete }) {
   </section>
 }
 
+const WEEKDAYS = [['1', 'Пн'], ['2', 'Вт'], ['3', 'Ср'], ['4', 'Чт'], ['5', 'Пт'], ['6', 'Сб'], ['7', 'Вс']]
+const weekdayKey = date => String((new Date(`${date}T12:00:00`).getDay() + 6) % 7 + 1)
+const visibleFor = (habit, userId) => habit.visibility === 'both' || habit.visibility === userId
+
+function TodayChecklist({ viewer, profile, data, update, date }) {
+  const tomorrow = shiftDate(date, 1)
+  const auto = []
+  if (!data.weightEntries.some(item => item.userId === profile.id && item.date === date)) auto.push('Записать вес')
+  if (!data.entries.some(item => item.userId === profile.id && item.date === date)) auto.push('Добавить еду')
+  if (profile.id === 'danya' && !data.workoutSessions.some(item => item.userId === 'danya' && item.date === date)) auto.push('Запланировать или записать тренировку')
+  if (viewer.id === 'vika' && !data.directMessages.some(item => item.fromUserId === 'vika' && item.toUserId === 'danya' && item.showDate === tomorrow)) auto.push('Написать Дане на завтра')
+  const recentEntryDays = new Set(data.entries.filter(item => item.userId === profile.id && item.date >= shiftDate(date, -13) && item.date <= date).map(item => item.date)).size
+  if (recentEntryDays < 3) auto.push('Добавить больше записей для отчётов')
+  const currentGoal = getGoal(data.goals, profile.id, date)
+  if (!currentGoal.startDate || currentGoal.startDate <= shiftDate(date, -42)) auto.push('Проверить цель КБЖУ')
+  const habits = data.habitItems.filter(habit => habit.isActive && visibleFor(habit, viewer.id) && (habit.weekdays || []).includes(weekdayKey(date)))
+  const completedIds = new Set(data.habitCompletions.filter(item => item.userId === viewer.id && item.date === date).map(item => item.habitItemId))
+  const toggleHabit = habit => update(current => {
+    const existing = current.habitCompletions.find(item => item.habitItemId === habit.id && item.userId === viewer.id && item.date === date)
+    return { ...current, habitCompletions: existing ? current.habitCompletions.filter(item => item.id !== existing.id) : [...current.habitCompletions, { id: crypto.randomUUID(), habitItemId: habit.id, userId: viewer.id, date, createdAt: new Date().toISOString() }] }
+  })
+  if (!auto.length && !habits.length) return null
+  return <section className="today-checklist" aria-labelledby="today-checklist-title"><div className="checklist-head"><div><span className="section-label">СЕГОДНЯ НУЖНО</span><h2 id="today-checklist-title">Небольшой чеклист</h2></div><span>{auto.length + habits.length}</span></div>{auto.map(item => <div className="checklist-row auto" key={item}><span>{item}</span></div>)}{habits.map(habit => <button className={`checklist-row habit ${completedIds.has(habit.id) ? 'done' : ''}`} key={habit.id} aria-pressed={completedIds.has(habit.id)} onClick={() => toggleHabit(habit)}><CheckCircle2 aria-hidden="true" /><span>{habit.name}</span><small>{completedIds.has(habit.id) ? 'Готово' : 'Отметить'}</small></button>)}</section>
+}
+
 function Today({ viewer, profile, setProfile, data, update, date, setDate, notify }) {
   const [meal, setMeal] = useState('breakfast'); const [modal, setModal] = useState(null); const [creating, setCreating] = useState(null); const [templatesOpen, setTemplatesOpen] = useState(false)
   const dayEntries = data.entries.filter(e => e.userId === profile.id && e.date === date); const mealEntries = dayEntries.filter(e => e.mealType === meal)
@@ -401,6 +426,7 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
   return <>
     <div className="topbar"><div><p className="eyebrow">PANK FAMILY FIT</p>{viewer.role === 'admin' ? <div className="profile-switch">{USERS.map(u => <button key={u.id} className={profile.id === u.id ? 'active' : ''} onClick={() => setProfile(u)}>{u.name}</button>)}</div> : <h1>Привет, {viewer.name}</h1>}</div><div className="avatar">{profile.name[0]}</div></div>
     <DayPicker date={date} setDate={setDate} />
+    <TodayChecklist viewer={viewer} profile={profile} data={data} update={update} date={date} />
     {viewer.id === 'vika' && <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />}
     <MacroCard total={total} goal={goal} />
     {viewer.id === 'danya' && <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />}
@@ -764,9 +790,34 @@ function NutritionPlanSettings({ viewer, data, update, notify }) {
   return <section className="settings-card nutrition-plan-settings"><div className="card-title"><div><span className="section-label">ПЛАН КБЖУ</span><h2>Цели и корректировки</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(user => <button key={user.id} className={profileId === user.id ? 'active' : ''} onClick={() => select(user.id)}>{user.name}</button>)}</div><div className="nutrition-current"><span>Действует с {current.startDate ? new Date(`${current.startDate}T12:00:00`).toLocaleDateString('ru-RU') : '—'}</span><div><strong>{current.calories || '—'} <small>ккал</small></strong><strong>Б {current.protein || '—'}</strong><strong>Ж {current.fat || '—'}</strong><strong>У {current.carbs || '—'}</strong></div></div><p className="plan-adjustment-hint">{nutritionPlanHint(data, profileId)} Решение об изменении остаётся за вами.</p><form onSubmit={save}><label>Начать действие с даты<input type="date" value={form.startDate} onChange={event => setForm({ ...form, startDate: event.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки, г'], ['fat', 'Жиры, г'], ['carbs', 'Углеводы, г']].map(([key, label]) => <label key={key}>{label}<input type="number" inputMode="decimal" min="0" value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })} aria-invalid={Boolean(form[key]) && (!Number.isFinite(Number(form[key])) || Number(form[key]) < 0)} /></label>)}</div><label>Причина изменения<select value={form.reason} onChange={event => setForm({ ...form, reason: event.target.value })}><option value="">Не указывать</option>{Object.entries(GOAL_REASONS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Комментарий<textarea value={form.comment} onChange={event => setForm({ ...form, comment: event.target.value })} placeholder="Необязательно" /></label><div className="field-error" role="alert">{invalid ? 'Укажите дату и неотрицательные значения КБЖУ.' : ''}</div><button className="primary wide" disabled={invalid}>Сохранить новую цель</button></form><p className="form-hint">Новая дата создаёт следующую цель; прошлые цели и дневники не удаляются.</p><div className="goal-history"><span className="section-label">ИСТОРИЯ ЦЕЛЕЙ</span>{history.map(goal => <article key={goal.id}><div><strong>{new Date(`${goal.startDate}T12:00:00`).toLocaleDateString('ru-RU')}</strong><span>{goal.calories} ккал · Б {goal.protein} · Ж {goal.fat} · У {goal.carbs}</span>{(goal.reason || goal.comment) && <small>{goal.reason ? GOAL_REASONS[goal.reason] || goal.reason : ''}{goal.reason && goal.comment ? ' · ' : ''}{goal.comment}</small>}</div><small>Изменил: {displayUser(goal.createdBy)}</small></article>)}</div></section>
 }
 
+function HabitModal({ initial, onClose, onSave }) {
+  const [name, setName] = useState(initial?.name || '')
+  const [visibility, setVisibility] = useState(initial?.visibility || 'both')
+  const [weekdays, setWeekdays] = useState(initial?.weekdays || WEEKDAYS.map(([key]) => key))
+  const clean = name.trim()
+  const toggleDay = key => setWeekdays(current => current.includes(key) ? current.filter(day => day !== key) : [...current, key])
+  const submit = event => { event.preventDefault(); if (clean && weekdays.length) onSave({ name: clean, visibility, weekdays }) }
+  return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet habit-sheet" role="dialog" aria-modal="true" aria-labelledby="habit-modal-title"><header><div><span className="section-label">ПРИВЫЧКА</span><h2 id="habit-modal-title">{initial ? 'Изменить привычку' : 'Новая привычка'}</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header><form onSubmit={submit}><label>Название<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Например, прогулка 20 минут" /></label><label>Кто видит<select value={visibility} onChange={event => setVisibility(event.target.value)}><option value="danya">Даня</option><option value="vika">Вика</option><option value="both">Оба</option></select></label><fieldset className="habit-days"><legend>Дни недели</legend><div>{WEEKDAYS.map(([key, label]) => <button type="button" key={key} className={weekdays.includes(key) ? 'active' : ''} aria-pressed={weekdays.includes(key)} onClick={() => toggleDay(key)}>{label}</button>)}</div></fieldset><div className="field-error" role="alert">{!clean || !weekdays.length ? 'Укажите название и хотя бы один день.' : ''}</div><button className="primary wide" disabled={!clean || !weekdays.length}>{initial ? 'Сохранить привычку' : 'Создать привычку'}</button></form></section></div>
+}
+
+function HabitSettings({ data, update, notify }) {
+  const [modal, setModal] = useState(null)
+  const habits = [...data.habitItems].sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name, 'ru'))
+  const save = values => {
+    const existing = modal?.habit; const timestamp = new Date().toISOString()
+    const habit = { id: existing?.id || crypto.randomUUID(), ...values, isActive: existing?.isActive ?? true, createdBy: 'danya', createdAt: existing?.createdAt || timestamp, updatedAt: timestamp }
+    update(current => ({ ...current, habitItems: existing ? current.habitItems.map(item => item.id === habit.id ? habit : item) : [...current.habitItems, habit] }))
+    setModal(null); notify(existing ? 'Привычка обновлена' : 'Привычка создана')
+  }
+  const archive = habit => { if (!window.confirm(`${habit.isActive ? 'Архивировать' : 'Вернуть'} привычку «${habit.name}»?`)) return; update(current => ({ ...current, habitItems: current.habitItems.map(item => item.id === habit.id ? { ...item, isActive: !item.isActive, updatedAt: new Date().toISOString() } : item) })); notify(habit.isActive ? 'Привычка архивирована' : 'Привычка восстановлена') }
+  const audience = value => value === 'both' ? 'Оба' : value === 'danya' ? 'Даня' : 'Вика'
+  return <section className="settings-card habit-settings" aria-labelledby="habit-settings-title"><div className="card-title"><div><span className="section-label">ПРИВЫЧКИ</span><h2 id="habit-settings-title">Ежедневный чеклист</h2></div><CheckCircle2 aria-hidden="true" /></div><p className="form-hint">Даня управляет привычками для себя, Вики или обоих. Каждый отмечает только свои выполнения.</p><button className="secondary wide" onClick={() => setModal({})}><Plus aria-hidden="true" />Добавить привычку</button>{habits.length ? <div className="habit-settings-list">{habits.map(habit => <article key={habit.id} className={habit.isActive ? '' : 'archived'}><div><strong>{habit.name}</strong><span>{audience(habit.visibility)} · {habit.weekdays.map(day => WEEKDAYS.find(([key]) => key === day)?.[1]).filter(Boolean).join(', ')}</span></div><div><button aria-label={`Изменить привычку ${habit.name}`} onClick={() => setModal({ habit })}><Pencil /></button><button aria-label={`${habit.isActive ? 'Архивировать' : 'Восстановить'} привычку ${habit.name}`} onClick={() => archive(habit)}>{habit.isActive ? <Archive /> : <CheckCircle2 />}</button></div></article>)}</div> : <p className="insight-empty">Добавьте лёгкую привычку, если она помогает помнить о важном.</p>}{modal && <HabitModal initial={modal.habit || null} onClose={() => setModal(null)} onSave={save} />}</section>
+}
+
 function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
   return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <NutritionPlanSettings viewer={viewer} data={data} update={update} notify={notify} />}
     <WeightGoalSettings viewer={viewer} data={data} update={update} notify={notify} />
+    {viewer.role === 'admin' && <HabitSettings data={data} update={update} notify={notify} />}
     {viewer.role === 'admin' && <MealTemplatesSettings data={data} update={update} notify={notify} />}
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.id === 'vika' && <TomorrowMessageSettings data={data} update={update} notify={notify} />}

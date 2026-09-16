@@ -61,17 +61,19 @@ const prepareLocalForSupabase = source => {
   }
   const foods = source.foods.map(food => ({ ...food, id: id('food', food.id), measures: (food.measures || []).map(measure => ({ ...measure, id: id('measure', measure.id) })) }))
   const mealTemplates = source.mealTemplates.map(item => ({ ...item, id: id('template', item.id) }))
+  const habitItems = source.habitItems.map(item => ({ ...item, id: id('habit', item.id) }))
   const workoutSessions = source.workoutSessions.map(item => ({ ...item, id: id('session', item.id) }))
   const exerciseLibrary = source.exerciseLibrary.map(item => ({ ...item, id: id('library', item.id) }))
   const workoutExercises = source.workoutExercises.map(item => ({ ...item, id: id('workoutExercise', item.id), workoutSessionId: id('session', item.workoutSessionId), exerciseLibraryId: item.exerciseLibraryId ? id('library', item.exerciseLibraryId) : null }))
   return {
-    ...source, foods, mealTemplates,
+    ...source, foods, mealTemplates, habitItems,
     goals: source.goals.map(item => ({ ...item, id: id('goal', item.id) })),
     entries: source.entries.map(item => ({ ...item, id: id('entry', item.id), foodItemId: item.foodItemId ? id('food', item.foodItemId) : null })),
     weightEntries: source.weightEntries.map(item => ({ ...item, id: id('weight', item.id) })),
     weightGoals: source.weightGoals.map(item => ({ ...item, id: id('weightGoal', item.id) })),
     recipeIngredients: source.recipeIngredients.map(item => ({ ...item, id: id('ingredient', item.id), recipeFoodItemId: item.recipeFoodItemId ? id('food', item.recipeFoodItemId) : null, ingredientFoodItemId: item.ingredientFoodItemId ? id('food', item.ingredientFoodItemId) : null })),
     mealTemplateItems: source.mealTemplateItems.map(item => ({ ...item, id: id('templateItem', item.id), templateId: id('template', item.templateId), foodItemId: item.foodItemId ? id('food', item.foodItemId) : null })),
+    habitCompletions: source.habitCompletions.map(item => ({ ...item, id: id('completion', item.id), habitItemId: id('habit', item.habitItemId) })),
     workoutSessions, exerciseLibrary, workoutExercises,
     workoutSets: source.workoutSets.map(item => ({ ...item, id: id('set', item.id), workoutExerciseId: id('workoutExercise', item.workoutExerciseId) })),
     messagePhrases: source.messagePhrases.map(item => ({ ...item, id: id('phrase', item.id) })),
@@ -90,6 +92,8 @@ const mergeLocal = (remote, local) => ({
   recipeIngredients: mergeBy(remote.recipeIngredients, local.recipeIngredients, item => item.id),
   mealTemplates: mergeBy(remote.mealTemplates, local.mealTemplates, item => String(item.name).trim().toLowerCase()),
   mealTemplateItems: mergeBy(remote.mealTemplateItems, local.mealTemplateItems, item => item.id),
+  habitItems: mergeBy(remote.habitItems, local.habitItems, item => item.id),
+  habitCompletions: mergeBy(remote.habitCompletions, local.habitCompletions, item => item.id),
   workoutSessions: mergeBy(remote.workoutSessions, local.workoutSessions, item => `${item.userId}:${item.date}`),
   exerciseLibrary: mergeBy(remote.exerciseLibrary, local.exerciseLibrary, item => String(item.name).toLowerCase()),
   workoutExercises: mergeBy(remote.workoutExercises, local.workoutExercises, item => item.id),
@@ -105,6 +109,7 @@ const tables = [
   ['meal_templates', 'mealTemplates', { createdBy: dbUserId }, true], ['meal_template_items', 'mealTemplateItems', {}, true],
   ['workout_sessions', 'workoutSessions', { userId: dbUserId }, true], ['exercise_library', 'exerciseLibrary', {}, true],
   ['workout_exercises', 'workoutExercises', {}, true], ['workout_sets', 'workoutSets', {}, true],
+  ['habit_items', 'habitItems', { createdBy: dbUserId }, true], ['habit_completions', 'habitCompletions', { userId: dbUserId }, false],
   ['message_phrases', 'messagePhrases', { createdBy: dbUserId, targetUserId: dbUserId }, true],
   ['daily_phrase_shows', 'dailyPhraseShows', { targetUserId: dbUserId }, false], ['direct_messages', 'directMessages', { fromUserId: dbUserId, toUserId: dbUserId }, true],
 ]

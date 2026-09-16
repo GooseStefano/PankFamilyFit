@@ -395,6 +395,20 @@ button { touch-action: manipulation; }
 .recipe-version-note { border: 1px solid #66783c; background: var(--accent-dark); display: flex; flex-direction: column; gap: 3px; }
 .recipe-version-note span { color: var(--muted); }
 .nutrition-plan-settings textarea { width: 100%; min-height: 76px; resize: vertical; }
+.habit-sheet form { gap: 12px; }
+.habit-days { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: 14px; }
+.habit-days legend { padding: 0 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.habit-days > div { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
+.habit-days button { min-width: 0; min-height: 44px; padding: 0 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 800; }
+.habit-days button.active { border-color: var(--accent); background: var(--accent); color: #242a18; }
+.habit-settings-list { display: flex; flex-direction: column; margin-top: 12px; }
+.habit-settings-list article { min-width: 0; padding: 10px 0; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.habit-settings-list article.archived { opacity: .62; }
+.habit-settings-list article > div:first-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.habit-settings-list span { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.habit-settings-list article > div:last-child { display: flex; gap: 5px; flex: none; }
+.habit-settings-list button { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: var(--surface2); color: var(--muted); display: grid; place-items: center; }
+.habit-settings-list button svg { width: 17px; }
 .nutrition-current { margin: 2px 0 12px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface2); }
 .nutrition-current > span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 10px; }
 .nutrition-current > div { display: grid; grid-template-columns: 1.35fr repeat(3,1fr); gap: 6px; }
@@ -463,6 +477,17 @@ button { touch-action: manipulation; }
 .scroll-area { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding-top: max(24px,env(safe-area-inset-top)); padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px); scroll-padding-top: max(24px,env(safe-area-inset-top)); scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px); }
 .bottom-nav { height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom)); }
 .settings-card,.settings-card form,.settings-card .nutrient-inputs,.settings-card .nutrient-inputs label { min-width: 0; }
+.today-checklist { margin-bottom: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.checklist-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.checklist-head h2 { font-size: 17px; }
+.checklist-head > span { min-width: 27px; padding: 4px 7px; border-radius: 9px; background: var(--surface2); color: var(--muted); font-size: 10px; text-align: center; }
+.checklist-row { width: 100%; min-height: 44px; padding: 8px 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); display: flex; align-items: center; gap: 8px; text-align: left; font-size: 12px; }
+.checklist-row.auto::before { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); content: ''; flex: none; }
+.checklist-row.habit svg { width: 20px; flex: none; color: var(--muted); }
+.checklist-row.habit small { margin-left: auto; color: var(--muted); font-size: 10px; }
+.checklist-row.habit.done { color: var(--muted); }
+.checklist-row.habit.done svg { color: var(--accent); }
+.checklist-row.habit.done span { text-decoration: line-through; }
 .settings-card .nutrient-inputs input { width: 100%; min-width: 0; }
 
 @media (min-width: 700px) {
