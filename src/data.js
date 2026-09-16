@@ -82,13 +82,16 @@ export function getWeekReport(data, userId, weekStart) {
     const fact = entries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
     const goal = getGoal(data.goals, userId, date)
     const plan = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: Number(goal[key] || 0) }), {})
-    const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - plan[key] }), {})
-    return { date, plan, fact, difference, status: calorieStatus(fact.calories, plan.calories), hasEntries: entries.length > 0 }
+    const hasEntries = entries.length > 0
+    const comparisonPlan = hasEntries ? plan : emptyNutrients()
+    const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - comparisonPlan[key] }), {})
+    return { date, goal, plan, comparisonPlan, fact, difference, status: hasEntries ? calorieStatus(fact.calories, plan.calories) : { key: 'neutral', label: 'Нет записи' }, hasEntries }
   })
-  const plan = days.reduce((total, item) => addNutrients(total, item.plan), emptyNutrients())
+  const plan = days.reduce((total, item) => addNutrients(total, item.comparisonPlan), emptyNutrients())
   const fact = days.reduce((total, item) => addNutrients(total, item.fact), emptyNutrients())
   const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - plan[key] }), {})
-  const average = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] / 7 }), {})
+  const daysWithEntries = days.filter(day => day.hasEntries).length
+  const average = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] / (daysWithEntries || 1) }), {})
   const hasEntries = days.some(dayItem => dayItem.hasEntries)
   const assessment = []
   if (!hasEntries) {
@@ -102,7 +105,7 @@ export function getWeekReport(data, userId, weekStart) {
   if (hasEntries && plan.protein > 0 && fact.protein < plan.protein * .9) assessment.push('Белка немного не хватило')
   if (hasEntries && plan.fat > 0 && fact.fat > plan.fat * 1.15) assessment.push('Жиров было многовато')
   if (hasEntries && plan.carbs > 0 && fact.carbs < plan.carbs * .85) assessment.push('Углеводов было мало')
-  return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries }
+  return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries, daysWithEntries }
 }
 
 export function getNutritionAnalytics(data, userId, period, referenceDate = todayISO()) {

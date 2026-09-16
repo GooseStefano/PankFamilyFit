@@ -394,6 +394,18 @@ button { touch-action: manipulation; }
 .recipe-warning { border: 1px solid #8b643b; background: #4a3828; color: #ffd2a5; }
 .recipe-version-note { border: 1px solid #66783c; background: var(--accent-dark); display: flex; flex-direction: column; gap: 3px; }
 .recipe-version-note span { color: var(--muted); }
+.nutrition-plan-settings textarea { width: 100%; min-height: 76px; resize: vertical; }
+.nutrition-current { margin: 2px 0 12px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface2); }
+.nutrition-current > span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 10px; }
+.nutrition-current > div { display: grid; grid-template-columns: 1.35fr repeat(3,1fr); gap: 6px; }
+.nutrition-current strong { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.nutrition-current small { color: var(--muted); font-size: 9px; }
+.plan-adjustment-hint { margin: 0 0 14px; padding: 11px 12px; border-left: 2px solid var(--accent); background: var(--accent-dark); color: var(--muted); font-size: 11px; line-height: 1.5; }
+.goal-history { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
+.goal-history > article { min-width: 0; padding: 10px 0; border-top: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.goal-history article > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.goal-history article span,.goal-history article small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.goal-history article > small { flex: none; max-width: 92px; text-align: right; }
 .recipe-favorite { position: relative; min-height: 48px; }
 .recipe-favorite input { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; }
 .recipe-favorite span { min-height: 48px; padding: 0 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface2); color: var(--muted); display: flex; align-items: center; gap: 9px; }
@@ -612,4 +624,7 @@ button { touch-action: manipulation; }
   .message-form-footer button { min-width: 108px; padding: 0 12px; }
   .phrase-meta { align-items: flex-start; flex-direction: column; }
   .phrase-meta > div { align-self: flex-end; }
+  .nutrition-current > div { grid-template-columns: 1fr 1fr; }
+  .goal-history > article { flex-direction: column; }
+  .goal-history article > small { max-width: none; text-align: left; }
 }

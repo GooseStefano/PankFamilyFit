@@ -450,7 +450,7 @@ function WeeklyReport({ profile, data, openDay }) {
         </div>)}
       </div>
       <div className="week-assessment" aria-label="Оценка недели">{report.assessment.map((text, index) => <p key={text} className={index === 0 ? 'primary-assessment' : ''}>{text}</p>)}</div>
-      <div className="average-title"><span className="section-label">СРЕДНЕЕ ЗА ДЕНЬ</span><span>7 календарных дней</span></div>
+      <div className="average-title"><span className="section-label">СРЕДНЕЕ ЗА ДЕНЬ</span><span>{report.daysWithEntries ? `${report.daysWithEntries} дней с едой` : 'нет записей'}</span></div>
       <div className="average-grid">{metricRows.map(([key, label, unit]) => <div key={key}><span>{label}</span><strong>{round(report.average[key])} <small>{unit}</small></strong></div>)}</div>
     </section>
     <section className="week-days" aria-labelledby="week-days-title">
@@ -460,7 +460,7 @@ function WeeklyReport({ profile, data, openDay }) {
         const dateLabel = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(new Date(`${day.date}T12:00:00`)).replace('.', '')
         return <button key={day.date} onClick={() => openDay(day.date)} aria-label={`${weekday}, ${dateLabel}: ${day.fact.calories} из ${day.plan.calories} килокалорий, ${day.status.label}`}>
           <span className="day-date"><strong>{weekday}</strong><small>{dateLabel}</small></span>
-          <span className="day-calories"><strong>{round(day.fact.calories)} <small>/ {round(day.plan.calories)}</small></strong><small>{signed(day.difference.calories)} ккал</small></span>
+          <span className="day-calories"><strong>{round(day.fact.calories)} <small>/ {round(day.plan.calories)}</small></strong><small>{day.hasEntries ? `${signed(day.difference.calories)} ккал` : 'Без сравнения'}</small><small>Цель с {day.goal.startDate || '—'}</small></span>
           <span className={`day-status ${day.status.key}`}>{day.status.label}</span><ChevronRight aria-hidden="true" />
         </button>
       })}</div>
@@ -732,13 +732,40 @@ function WeightGoalSettings({ viewer, data, update, notify }) {
   return <section className="settings-card weight-goal-settings"><div className="card-title"><div><span className="section-label">ЦЕЛЬ ВЕСА</span><h2>План снижения веса</h2></div><Scale aria-hidden="true" /></div>{viewer.role === 'admin' && <div className="profile-switch compact">{USERS.map(user => <button key={user.id} className={profileId === user.id ? 'active' : ''} onClick={() => select(user.id)}>{user.name}</button>)}</div>}<p className="form-hint">Текущий вес: {current === null ? 'нет записи — сначала добавьте измерение' : `${round(current)} кг · ${prettyDate(stats.latest.date)}`}</p><form onSubmit={save}><label>Целевой вес, кг<input type="number" inputMode="decimal" min="20" max="500" step="0.1" value={form.targetWeight} onChange={event => setForm({ ...form, targetWeight: event.target.value })} placeholder="Например, 75" aria-invalid={Boolean(form.targetWeight) && invalid} aria-describedby="weight-goal-error" /></label><div id="weight-goal-error" className="field-error" role="alert">{!current ? 'Добавьте текущий вес, затем укажите цель.' : form.targetWeight && invalid ? 'Для плана снижения цель должна быть меньше текущего веса и не ниже 20 кг.' : ''}</div><label>Желаемый темп<select value={form.pace} onChange={event => setForm({ ...form, pace: event.target.value })}>{Object.entries(WEIGHT_PACES).map(([key, pace]) => <option key={key} value={key}>{pace.label}</option>)}</select></label><label>Дата начала<input type="date" max={todayISO()} value={form.startDate} onChange={event => setForm({ ...form, startDate: event.target.value })} /></label><button className="primary wide" disabled={invalid}>Сохранить цель веса</button></form><p className="form-hint">Это ориентир для наблюдения за динамикой, а не медицинское назначение.</p></section>
 }
 
-function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
-  const [profileId, setProfileId] = useState('danya'); const latest = getGoal(data.goals, profileId, todayISO()); const [form, setForm] = useState({ ...latest, startDate: todayISO() })
-  const select = id => { setProfileId(id); const goal = getGoal(data.goals, id, todayISO()); setForm({ ...goal, startDate: todayISO() }) }
-  const save = e => {
-    e.preventDefault(); update(d => ({ ...d, goals: [...d.goals, { ...form, id: crypto.randomUUID(), userId: profileId, calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs) }] })); notify('Цель КБЖУ сохранена')
+const GOAL_REASONS = { reduce: 'Снижаем калории', plateau: 'Вес стоит', maintenance: 'Поддержание', other: 'Другое' }
+function nutritionPlanHint(data, profileId) {
+  const report = getNutritionAnalytics(data, profileId, '14')
+  const weights = data.weightEntries.filter(item => item.userId === profileId && item.date >= shiftDate(todayISO(), -13) && item.date <= todayISO()).sort((a, b) => a.date.localeCompare(b.date))
+  if (report.daysWithEntries < 5 || weights.length < 2) return 'Мало данных для рекомендации.'
+  const change = Number(weights.at(-1).weight) - Number(weights[0].weight)
+  const closeToPlan = report.plan.calories > 0 && Math.abs(report.calorieDifference / report.plan.calories) <= .05
+  if (change <= -1.5) return 'Вес снижается быстро — лучше не снижать калории резко.'
+  if (Math.abs(change) < .2 && closeToPlan) return 'Вес стоит, а калории близко к цели: можно подумать о небольшой корректировке.'
+  return 'Текущий план выглядит стабильным.'
+}
+
+function NutritionPlanSettings({ viewer, data, update, notify }) {
+  const [profileId, setProfileId] = useState('danya')
+  const current = getGoal(data.goals, profileId, todayISO())
+  const [form, setForm] = useState(() => ({ calories: current.calories || '', protein: current.protein || '', fat: current.fat || '', carbs: current.carbs || '', startDate: todayISO(), reason: '', comment: '' }))
+  const select = id => { const goal = getGoal(data.goals, id, todayISO()); setProfileId(id); setForm({ calories: goal.calories || '', protein: goal.protein || '', fat: goal.fat || '', carbs: goal.carbs || '', startDate: todayISO(), reason: '', comment: '' }) }
+  const invalid = !form.startDate || ['calories', 'protein', 'fat', 'carbs'].some(key => form[key] === '' || !Number.isFinite(Number(form[key])) || Number(form[key]) < 0)
+  const history = data.goals.filter(goal => goal.userId === profileId).sort((a, b) => b.startDate.localeCompare(a.startDate))
+  const save = event => {
+    event.preventDefault()
+    if (invalid) return
+    const existing = data.goals.find(goal => goal.userId === profileId && goal.startDate === form.startDate)
+    if (existing && !window.confirm(`Цель с ${new Date(`${form.startDate}T12:00:00`).toLocaleDateString('ru-RU')} уже есть. Обновить её?`)) return
+    const goal = { id: existing?.id || crypto.randomUUID(), userId: profileId, calories: Number(form.calories), protein: Number(form.protein), fat: Number(form.fat), carbs: Number(form.carbs), startDate: form.startDate, reason: form.reason, comment: form.comment.trim(), createdBy: viewer.id, createdAt: existing?.createdAt || new Date().toISOString() }
+    update(currentData => ({ ...currentData, goals: [...currentData.goals.filter(item => item.id !== goal.id), goal] }))
+    notify(existing ? 'Цель КБЖУ обновлена' : 'Новая цель КБЖУ сохранена')
   }
-  return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <section className="settings-card"><div className="card-title"><div><span className="section-label">ЦЕЛИ КБЖУ</span><h2>Новая цель</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(u => <button key={u.id} className={profileId === u.id ? 'active' : ''} onClick={() => select(u.id)}>{u.name}</button>)}</div><form onSubmit={save}><label>Применить с даты<input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки'], ['fat', 'Жиры'], ['carbs', 'Углеводы']].map(([k, l]) => <label key={k}>{l}<input type="number" min="0" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>)}</div><button className="primary wide">Сохранить новую цель</button></form><p className="form-hint">Старые дни сохранят прежние цели.</p></section>}
+  const displayUser = id => USERS.find(user => user.id === id)?.name || 'не указано'
+  return <section className="settings-card nutrition-plan-settings"><div className="card-title"><div><span className="section-label">ПЛАН КБЖУ</span><h2>Цели и корректировки</h2></div><SlidersHorizontal aria-hidden="true" /></div><div className="profile-switch compact">{USERS.map(user => <button key={user.id} className={profileId === user.id ? 'active' : ''} onClick={() => select(user.id)}>{user.name}</button>)}</div><div className="nutrition-current"><span>Действует с {current.startDate ? new Date(`${current.startDate}T12:00:00`).toLocaleDateString('ru-RU') : '—'}</span><div><strong>{current.calories || '—'} <small>ккал</small></strong><strong>Б {current.protein || '—'}</strong><strong>Ж {current.fat || '—'}</strong><strong>У {current.carbs || '—'}</strong></div></div><p className="plan-adjustment-hint">{nutritionPlanHint(data, profileId)} Решение об изменении остаётся за вами.</p><form onSubmit={save}><label>Начать действие с даты<input type="date" value={form.startDate} onChange={event => setForm({ ...form, startDate: event.target.value })} /></label><div className="nutrient-inputs">{[['calories', 'Ккал'], ['protein', 'Белки, г'], ['fat', 'Жиры, г'], ['carbs', 'Углеводы, г']].map(([key, label]) => <label key={key}>{label}<input type="number" inputMode="decimal" min="0" value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })} aria-invalid={Boolean(form[key]) && (!Number.isFinite(Number(form[key])) || Number(form[key]) < 0)} /></label>)}</div><label>Причина изменения<select value={form.reason} onChange={event => setForm({ ...form, reason: event.target.value })}><option value="">Не указывать</option>{Object.entries(GOAL_REASONS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Комментарий<textarea value={form.comment} onChange={event => setForm({ ...form, comment: event.target.value })} placeholder="Необязательно" /></label><div className="field-error" role="alert">{invalid ? 'Укажите дату и неотрицательные значения КБЖУ.' : ''}</div><button className="primary wide" disabled={invalid}>Сохранить новую цель</button></form><p className="form-hint">Новая дата создаёт следующую цель; прошлые цели и дневники не удаляются.</p><div className="goal-history"><span className="section-label">ИСТОРИЯ ЦЕЛЕЙ</span>{history.map(goal => <article key={goal.id}><div><strong>{new Date(`${goal.startDate}T12:00:00`).toLocaleDateString('ru-RU')}</strong><span>{goal.calories} ккал · Б {goal.protein} · Ж {goal.fat} · У {goal.carbs}</span>{(goal.reason || goal.comment) && <small>{goal.reason ? GOAL_REASONS[goal.reason] || goal.reason : ''}{goal.reason && goal.comment ? ' · ' : ''}{goal.comment}</small>}</div><small>Изменил: {displayUser(goal.createdBy)}</small></article>)}</div></section>
+}
+
+function SettingsPage({ viewer, data, update, onLogout, notify, hasLocalMigration, migrateLocalData, dismissLocalMigration }) {
+  return <><PageHead eyebrow="ПРОФИЛЬ" title="Настройки" subtitle={`Вы вошли как ${viewer.name}`} />{viewer.role === 'admin' && <NutritionPlanSettings viewer={viewer} data={data} update={update} notify={notify} />}
     <WeightGoalSettings viewer={viewer} data={data} update={update} notify={notify} />
     {viewer.role === 'admin' && <MealTemplatesSettings data={data} update={update} notify={notify} />}
     <PhraseSettings viewer={viewer} data={data} update={update} notify={notify} />

@@ -100,7 +100,7 @@ const mergeLocal = (remote, local) => ({
 })
 
 const tables = [
-  ['nutrition_goals', 'goals', { userId: dbUserId }, false], ['food_items', 'foods', { createdBy: dbUserId }, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
+  ['nutrition_goals', 'goals', { userId: dbUserId, createdBy: dbUserId }, false], ['food_items', 'foods', { createdBy: dbUserId }, true], ['meal_entries', 'entries', { userId: dbUserId }, true],
   ['weight_entries', 'weightEntries', { userId: dbUserId }, true], ['weight_goals', 'weightGoals', { userId: dbUserId }, true], ['recipe_ingredients', 'recipeIngredients', {}, false],
   ['meal_templates', 'mealTemplates', { createdBy: dbUserId }, true], ['meal_template_items', 'mealTemplateItems', {}, true],
   ['workout_sessions', 'workoutSessions', { userId: dbUserId }, true], ['exercise_library', 'exerciseLibrary', {}, true],
