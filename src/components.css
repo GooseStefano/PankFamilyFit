@@ -1053,3 +1053,63 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .scroll-area { padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 28px); }
   .daily-message-card,.macro-card,.meal-section,.note-card,.today-checklist { margin-bottom: 8px; }
 }
+
+/* v1.3 — quick meal notes and owner-scoped personal products. */
+#root .unresolved-badge { border-radius: var(--radius-sm) !important; }
+#root .unresolved-context,
+#root .quick-meal-note,
+#root .unresolved-report-note { border-radius: var(--radius-control) !important; }
+#root .unresolved-meal-row { border-radius: var(--radius) !important; }
+
+.meal-primary-actions { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 7px; }
+.meal-primary-actions button { min-width: 0; min-height: 48px; padding-inline: 10px; }
+.quick-meal-action { border-color: color-mix(in srgb,var(--accent-border) 62%,var(--border)); color: var(--accent); }
+.quick-meal-action svg { width: 17px; }
+
+.unresolved-meal-row {
+  margin: 6px 0;
+  padding: 11px !important;
+  border: 1px dashed color-mix(in srgb,var(--accent-border) 72%,var(--border)) !important;
+  background: color-mix(in srgb,var(--accent-dark) 52%,var(--surface));
+}
+.unresolved-meal-row > div:first-child { min-width: 0; }
+.unresolved-meal-row > div:first-child > strong { margin-top: 1px; overflow-wrap: anywhere; }
+.unresolved-meal-row > div:first-child > small { color: color-mix(in srgb,var(--accent) 80%,var(--muted)); }
+.unresolved-badge { align-self: flex-start; padding: 2px 5px; border: 1px solid color-mix(in srgb,var(--accent-border) 72%,transparent); color: var(--accent) !important; font-size: 8px !important; font-weight: 800; letter-spacing: .08em; }
+.resolve-meal { min-width: 86px; min-height: 44px; padding: 0 10px; border: 1px solid var(--accent-border); background: transparent; color: var(--accent); font-size: 11px; font-weight: 800; }
+.unresolved-meal-row .row-actions { justify-content: flex-end; }
+.unresolved-meal-row .row-actions button { background: transparent; }
+
+.quick-meal-sheet textarea { min-height: 72px; resize: vertical; }
+.quick-meal-sheet label > small { margin-left: 5px; color: var(--muted); font-size: 10px; font-weight: 500; }
+.quick-meal-note,.unresolved-context,.unresolved-report-note { display: flex; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid color-mix(in srgb,var(--accent-border) 58%,var(--border)); background: color-mix(in srgb,var(--accent-dark) 44%,var(--surface)); color: var(--muted); font-size: 11px; line-height: 1.45; }
+.quick-meal-note svg,.unresolved-report-note svg { width: 18px; flex: none; color: var(--accent); }
+.quick-meal-note strong { display: block; margin-bottom: 2px; color: var(--text); }
+.unresolved-context { margin-bottom: 2px; flex-direction: column; }
+.unresolved-context span { color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.unresolved-context small { color: var(--muted); overflow-wrap: anywhere; }
+.unresolved-report-note { margin: 9px 0 12px; }
+
+.quick-create-actions.single { grid-template-columns: 1fr; }
+.product-actions.personal { display: grid; grid-template-columns: 1fr; overflow: visible; }
+.product-actions.personal > * { width: 100%; }
+.product-type-filters button { min-height: 44px; }
+.nutrient-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.nutrient-inputs label,.nutrient-inputs input { min-width: 0; width: 100%; }
+.theme-vika .history-modes button.active,
+.theme-vika .weight-periods button.active,
+.theme-vika .analytics-periods button.active,
+.theme-vika .product-type-filters button.active,
+.theme-vika .habit-days button.active,
+.theme-vika .difficulty-quick button.active { color: var(--text); }
+
+@media (max-width: 400px) {
+  .meal-primary-actions { grid-template-columns: 1fr; gap: 5px; }
+  .quick-meal-action { min-height: 44px !important; }
+  .unresolved-meal-row { grid-template-columns: minmax(0,1fr) auto; }
+  .resolve-meal { min-width: 78px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .quick-meal-sheet textarea { min-height: 58px; }
+}

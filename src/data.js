@@ -79,13 +79,15 @@ export function getWeekReport(data, userId, weekStart) {
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = shiftDate(weekStart, index)
     const entries = data.entries.filter(entry => entry.userId === userId && entry.date === date)
-    const fact = entries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
+    const resolvedEntries = entries.filter(entry => !entry.isUnresolved)
+    const unresolvedCount = entries.length - resolvedEntries.length
+    const fact = resolvedEntries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
     const goal = getGoal(data.goals, userId, date)
     const plan = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: Number(goal[key] || 0) }), {})
-    const hasEntries = entries.length > 0
+    const hasEntries = resolvedEntries.length > 0
     const comparisonPlan = hasEntries ? plan : emptyNutrients()
     const difference = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: fact[key] - comparisonPlan[key] }), {})
-    return { date, goal, plan, comparisonPlan, fact, difference, status: hasEntries ? calorieStatus(fact.calories, plan.calories) : { key: 'neutral', label: 'Нет записи' }, hasEntries }
+    return { date, goal, plan, comparisonPlan, fact, difference, status: hasEntries ? calorieStatus(fact.calories, plan.calories) : { key: 'neutral', label: 'Нет подсчёта' }, hasEntries, unresolvedCount }
   })
   const plan = days.reduce((total, item) => addNutrients(total, item.comparisonPlan), emptyNutrients())
   const fact = days.reduce((total, item) => addNutrients(total, item.fact), emptyNutrients())
@@ -105,7 +107,8 @@ export function getWeekReport(data, userId, weekStart) {
   if (hasEntries && plan.protein > 0 && fact.protein < plan.protein * .9) assessment.push('Белка немного не хватило')
   if (hasEntries && plan.fat > 0 && fact.fat > plan.fat * 1.15) assessment.push('Жиров было многовато')
   if (hasEntries && plan.carbs > 0 && fact.carbs < plan.carbs * .85) assessment.push('Углеводов было мало')
-  return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries, daysWithEntries }
+  const unresolvedCount = days.reduce((total, day) => total + day.unresolvedCount, 0)
+  return { weekStart, weekEnd: shiftDate(weekStart, 6), days, plan, fact, difference, average, assessment, hasEntries, daysWithEntries, unresolvedCount }
 }
 
 export function getNutritionAnalytics(data, userId, period, referenceDate = todayISO()) {
@@ -113,10 +116,12 @@ export function getNutritionAnalytics(data, userId, period, referenceDate = toda
   const days = Array.from({ length: count }, (_, index) => {
     const date = shiftDate(referenceDate, -(count - index - 1))
     const entries = data.entries.filter(entry => entry.userId === userId && entry.date === date)
-    const fact = entries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
+    const resolvedEntries = entries.filter(entry => !entry.isUnresolved)
+    const unresolvedCount = entries.length - resolvedEntries.length
+    const fact = resolvedEntries.reduce((total, entry) => addNutrients(total, entry), emptyNutrients())
     const goal = getGoal(data.goals, userId, date)
     const plan = NUTRIENTS.reduce((result, key) => ({ ...result, [key]: Number(goal[key] || 0) }), {})
-    return { date, fact, plan, hasEntries: entries.length > 0 }
+    return { date, fact, plan, hasEntries: resolvedEntries.length > 0, unresolvedCount }
   })
   const recordedDays = days.filter(day => day.hasEntries)
   const fact = recordedDays.reduce((total, day) => addNutrients(total, day.fact), emptyNutrients())
@@ -127,6 +132,7 @@ export function getNutritionAnalytics(data, userId, period, referenceDate = toda
     calorieDifference: fact.calories - plan.calories,
     daysWithEntries: recordedDays.length,
     daysWithoutEntries: days.length - recordedDays.length,
+    unresolvedCount: days.reduce((total, day) => total + day.unresolvedCount, 0),
   }
 }
 
