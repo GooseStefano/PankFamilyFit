@@ -69,7 +69,7 @@ function MacroCard({ total, goal }) {
     <div className="calorie-ring" role="progressbar" aria-label="Прогресс калорий" aria-valuemin="0" aria-valuemax="100" aria-valuenow={round(pct)} style={{ '--calorie-progress': `${pct * 3.6}deg` }}>
       <div><strong>{round(total.calories)}</strong><span>из {goal.calories}</span><small>ккал</small></div>
     </div>
-    <div className="macro-journal"><div className="macro-journal-head"><div><span className="section-label">ДНЕВНИК ПИТАНИЯ</span><h2>Калории на сегодня</h2></div>
+    <div className="macro-journal"><div className="macro-journal-head"><div><span className="section-label">СЕГОДНЯ ПО ЕДЕ</span><h2>Калории на сегодня</h2></div>
       <div className="remaining"><Flame size={17} aria-hidden="true" /><span>Осталось</span><strong>{Math.max(0, round(goal.calories - total.calories))}</strong></div></div>
       <div className="macro-grid">{macros.map(([label, val, max]) => <div key={label}><span>{label}</span><strong>{round(val)}</strong><small>из {max} г</small></div>)}</div>
     </div>

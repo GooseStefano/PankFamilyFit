@@ -934,3 +934,122 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .macro-card { grid-template-columns: 88px minmax(0,1fr); }
   .calorie-ring { width: 88px; height: 88px; padding: 7px; }
 }
+
+/* v1.2.1 — lighter rhythm and tighter Today composition. */
+:root { --bottom-nav-height: 76px; }
+.scroll-area {
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 36px);
+  scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 36px);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb,var(--muted) 32%,transparent) transparent;
+}
+.scroll-area::-webkit-scrollbar { width: 4px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; }
+.scroll-area::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--muted) 28%,transparent); }
+
+.storage-status {
+  min-height: 20px;
+  margin-bottom: 5px;
+  padding: 1px 6px;
+  border-color: color-mix(in srgb,var(--border) 72%,transparent);
+  color: color-mix(in srgb,var(--muted) 82%,transparent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .025em;
+}
+.storage-status.supabase { border-color: color-mix(in srgb,var(--accent-border) 58%,transparent); color: color-mix(in srgb,var(--accent) 74%,var(--muted)); }
+
+.today-topbar { gap: 11px; margin-bottom: 3px; padding: 3px 2px 9px; border-bottom: 0; }
+.greeting-title { margin-bottom: 3px; font-size: clamp(25px,7.4vw,31px); font-weight: 650; line-height: 1.16; }
+.theme-vika .greeting-title { font-weight: 550; letter-spacing: -.025em; }
+.today-subtitle { max-width: 30ch; font-size: 11px; line-height: 1.42; }
+.today-profile-switch { margin-top: 7px !important; }
+.today-topbar .avatar { width: 42px; height: 42px; }
+
+.daily-message-card,.macro-card,.meal-section,.note-card,.today-checklist { margin-bottom: 10px; }
+.daily-message-card {
+  gap: 3px 12px;
+  padding: 10px 12px;
+  border-color: color-mix(in srgb,var(--accent-border) 68%,var(--border));
+  background: color-mix(in srgb,var(--surface) 72%,var(--accent-dark));
+}
+.theme-vika .daily-message-card { background: color-mix(in srgb,var(--surface) 80%,var(--accent-dark)); }
+.daily-message-heading h2 { font-size: 13px; }
+.daily-message-heading > svg { width: 18px; }
+.daily-message-card blockquote { margin-top: 4px; font-size: 12px; line-height: 1.45; }
+.daily-message-empty { margin-top: 4px; }
+.message-hand-note { max-width: 126px; padding-right: 3px; font-size: 12px; line-height: 1.35; transform: rotate(-1deg); }
+
+.date-row { grid-template-columns: 44px 1fr 44px; gap: 6px; margin-bottom: 10px; }
+.date-row .icon-button { width: 44px; height: 44px; border-color: color-mix(in srgb,var(--border) 72%,transparent); background: transparent; }
+.date-row .icon-button svg { width: 19px; }
+.date-title { min-height: 44px; }
+.date-title strong { font-size: 14px; }
+.date-title span { font-size: 10px; }
+
+.macro-card { gap: 13px; padding: 12px; }
+.calorie-ring { padding: 5px; background: conic-gradient(var(--accent) var(--calorie-progress),color-mix(in srgb,var(--track) 72%,transparent) 0); }
+.calorie-ring > div { border-color: color-mix(in srgb,var(--border) 72%,transparent); }
+.calorie-ring strong { font-size: 20px; }
+.calorie-ring span { font-size: 9px; }
+.macro-journal-head { margin-bottom: 9px; }
+.macro-journal-head h2 { font-size: 14px; }
+.macro-card .macro-grid { border-top-color: color-mix(in srgb,var(--border) 58%,transparent); }
+.macro-card .macro-grid > div { padding-top: 8px; border-left-color: color-mix(in srgb,var(--border) 48%,transparent); }
+.macro-card .macro-grid span { font-size: 9px; }
+.macro-card .macro-grid small { color: color-mix(in srgb,var(--muted) 84%,transparent); }
+
+.meal-section { padding-bottom: 8px; }
+.meal-tabs { border-bottom-color: color-mix(in srgb,var(--border) 62%,transparent); }
+.meal-empty { min-height: 84px; padding-top: 10px; padding-bottom: 9px; }
+.meal-quick-actions { gap: 2px; margin-top: 1px; }
+.meal-quick-actions button { min-height: 44px; padding: 0 5px; border: 0; background: transparent; color: color-mix(in srgb,var(--muted) 88%,transparent); font-size: 10px; font-weight: 700; }
+.meal-quick-actions button svg { width: 15px; }
+.meal-quick-actions button:hover { border: 0; background: color-mix(in srgb,var(--surface2) 58%,transparent); }
+.meal-total { margin-top: 0; padding-top: 9px; padding-bottom: 9px; border-top-color: color-mix(in srgb,var(--border) 62%,transparent); }
+
+.note-card { padding: 12px; }
+.note-card textarea { min-height: 62px; margin-top: 6px; padding: 9px 11px; border-color: color-mix(in srgb,var(--border) 72%,transparent); }
+.note-title label { font-size: 14px; }
+.note-empty { margin-top: 5px; }
+.note-footer { margin-top: 5px; }
+.note-footer .secondary { min-width: 96px; min-height: 44px; padding: 0 11px; }
+.note-footer .secondary:disabled { border-color: transparent; background: transparent; }
+
+.today-checklist {
+  padding: 12px 13px 10px;
+  border-color: color-mix(in srgb,var(--border) 78%,transparent);
+  background: color-mix(in srgb,var(--surface) 95%,var(--accent-dark));
+}
+.theme-vika .today-checklist { background: color-mix(in srgb,var(--surface) 97%,var(--accent-dark)); }
+.checklist-row { min-height: 44px; padding: 8px 0; border-top-color: color-mix(in srgb,var(--border) 52%,transparent); }
+.checklist-row.auto::before { width: 6px; height: 6px; box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent-dark) 72%,transparent); }
+.checklist-row.habit svg { width: 18px; }
+.checklist-row.habit.done { color: color-mix(in srgb,var(--muted) 88%,var(--text)); }
+.checklist-row.habit.done svg,.checklist-row.habit.done small { color: color-mix(in srgb,var(--accent) 78%,var(--muted)); }
+.checklist-note { max-width: 235px; margin-top: 8px; padding-top: 7px; border-top-color: color-mix(in srgb,var(--border) 48%,transparent); font-size: 12px; line-height: 1.4; }
+.theme-vika .checklist-note { color: color-mix(in srgb,var(--accent) 72%,var(--text)); }
+
+.bottom-nav { padding-top: 4px; border-top-color: color-mix(in srgb,var(--border) 72%,transparent); background: color-mix(in srgb,var(--bg) 95%,transparent); }
+.bottom-nav button { min-height: 60px; gap: 3px; color: color-mix(in srgb,var(--muted) 84%,transparent); font-size: 9px; }
+.bottom-nav svg { width: 19px; }
+.bottom-nav button::before { top: -5px; height: 1px; }
+.bottom-nav button.active { color: color-mix(in srgb,var(--accent) 88%,var(--text)); }
+
+@media (max-width: 400px) {
+  .scroll-area { padding-right: 16px; padding-left: 16px; }
+  .message-hand-note { max-width: 112px; }
+  .macro-card { grid-template-columns: 90px minmax(0,1fr); gap: 10px; }
+  .calorie-ring { width: 90px; height: 90px; }
+  .macro-card .macro-grid > div { padding-right: 3px; padding-left: 3px; }
+  .note-card textarea { min-height: 58px; }
+}
+
+@media (max-width: 350px) {
+  .message-hand-note { grid-column: 1 / -1; grid-row: auto; max-width: 170px; margin: 3px 4px 0 auto; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .scroll-area { padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 28px); }
+  .daily-message-card,.macro-card,.meal-section,.note-card,.today-checklist { margin-bottom: 8px; }
+}
