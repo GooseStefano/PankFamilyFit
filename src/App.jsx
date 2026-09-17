@@ -48,7 +48,7 @@ function Login({ onLogin, offline, hasOfflineSnapshot }) {
   return <main className="login-shell"><section className="login-card">
     <div className="brand-mark"><Apple size={28} aria-hidden="true" /></div>
     <p className="eyebrow">PANK FAMILY FIT</p><h1>Наш дневник питания</h1>
-    <p className="muted">Спокойно следим за КБЖУ — без лишнего шума.</p>
+    <p className="muted">Спокойно следим за КБЖУ (без заёбы).</p>
     {offline && <div className="login-offline" role="status"><strong>Оффлайн</strong><span>{hasOfflineSnapshot ? 'Для входа нужен интернет. Ранее открытый сеанс сохраняет доступ к локальному снимку.' : 'Нет сохранённого снимка. Открой приложение онлайн хотя бы один раз.'}</span></div>}
     <form onSubmit={submit}>
       <label htmlFor="pin">Введи PIN</label>
@@ -113,7 +113,7 @@ function AddFoodModal({ foods, initial, initialMeal, initialDate, onClose, onSav
       <form onSubmit={submit}>{!selected ? <>
         {initial?.isUnresolved && <div className="unresolved-context"><span>Записали раньше</span><strong>{initial.unresolvedName || initial.foodName}</strong>{initial.unresolvedNote && <small>{initial.unresolvedNote}</small>}</div>}
         <label htmlFor="food-search">Найти продукт</label>
-        <div className="search"><Search aria-hidden="true" /><input id="food-search" autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Например, овсянка" /></div>
+        <div className="search"><Search aria-hidden="true" /><input id="food-search" autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Например, пиражок-пидарок" /></div>
         {!query && frequentFoods.length > 0 && <section className="frequent-foods" aria-label="Часто добавляем"><span className="section-label">ЧАСТО ДОБАВЛЯЕМ</span><div className="frequent-food-grid">{frequentFoods.map(food => <button type="button" key={food.id} onClick={() => choose(food)}><strong>{food.name}</strong><small>{food.favorite ? 'Любимое' : `${food.usageCount || 0} раз`}</small></button>)}</div></section>}
         {visibleFoods.length > 0 ? <><p className="food-results-title">{query ? 'Результаты поиска' : 'Все продукты и блюда'}</p><div className="food-results">{visibleFoods.map(f => <button type="button" key={f.id} onClick={() => choose(f)}>
           <div className="food-icon"><Utensils aria-hidden="true" /></div><span><strong>{f.name}</strong><small>{f.calories} ккал · Б {f.protein} · Ж {f.fat} · У {f.carbs}</small></span><ChevronRight aria-hidden="true" />
@@ -152,7 +152,7 @@ function QuickMealModal({ initialMeal, initialDate, onClose, onSave }) {
   return <div className="scrim" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="sheet quick-meal-sheet" role="dialog" aria-modal="true" aria-labelledby="quick-meal-title">
     <header><div><span className="section-label">БЕЗ ПОДСЧЁТА</span><h2 id="quick-meal-title">Записать быстро</h2></div><button className="icon-button" aria-label="Закрыть" onClick={onClose}><X /></button></header>
     <form onSubmit={submit}><p className="form-hint">Сейчас запишем только факт еды, а КБЖУ можно уточнить позже.</p>
-      <label htmlFor="quick-meal-name">Что поели<input id="quick-meal-name" autoFocus required maxLength="120" value={name} onChange={event => setName(event.target.value)} placeholder="Например, сэндвич из Magnum" /></label>
+      <label htmlFor="quick-meal-name">Что поели<input id="quick-meal-name" autoFocus required maxLength="120" value={name} onChange={event => setName(event.target.value)} placeholder="Например, сочную булочку любимого" /></label>
       <label htmlFor="quick-meal-note">Заметка <small>необязательно</small><textarea id="quick-meal-note" maxLength="240" value={note} onChange={event => setNote(event.target.value)} placeholder="Например, большой соус и два кусочка хлеба" /></label>
       <div className="form-grid"><label>Приём пищи<select value={meal} onChange={event => setMeal(event.target.value)}>{Object.entries(MEALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Дата<input type="date" max={todayISO()} value={date} onChange={event => setDate(event.target.value)} /></label></div>
       <div className="quick-meal-note"><Clock3 aria-hidden="true" /><span><strong>Запишем, разберём позже.</strong>Пока не считаем в итогах.</span></div>
@@ -394,7 +394,7 @@ function TodayChecklist({ viewer, profile, data, update, date }) {
   })
   if (!auto.length && !habits.length) return null
   const handNote = profile.id === 'vika' ? 'Забота о себе — это тоже победа' : 'Дисциплина сегодня — свобода завтра'
-  return <section className="today-checklist" aria-labelledby="today-checklist-title"><div className="checklist-head"><div><span className="section-label">СПИСОК ЗАБОТЫ</span><h2 id="today-checklist-title">На сегодня</h2></div><span>{auto.length + habits.length}</span></div>{auto.map(item => <div className="checklist-row auto" key={item}><span>{item}</span></div>)}{habits.map(habit => <button className={`checklist-row habit ${completedIds.has(habit.id) ? 'done' : ''}`} key={habit.id} aria-pressed={completedIds.has(habit.id)} onClick={() => toggleHabit(habit)}><CheckCircle2 aria-hidden="true" /><span>{habit.name}</span><small>{completedIds.has(habit.id) ? 'Сделано' : 'Готово'}</small></button>)}<p className="hand-note checklist-note" aria-hidden="true">{handNote}</p></section>
+  return <section className="today-checklist" aria-labelledby="today-checklist-title"><div className="checklist-head"><div><span className="section-label">СПИСОК ЗАБОТЫ(ЗАЁБЫ)</span><h2 id="today-checklist-title">На сегодня</h2></div><span>{auto.length + habits.length}</span></div>{auto.map(item => <div className="checklist-row auto" key={item}><span>{item}</span></div>)}{habits.map(habit => <button className={`checklist-row habit ${completedIds.has(habit.id) ? 'done' : ''}`} key={habit.id} aria-pressed={completedIds.has(habit.id)} onClick={() => toggleHabit(habit)}><CheckCircle2 aria-hidden="true" /><span>{habit.name}</span><small>{completedIds.has(habit.id) ? 'Сделано' : 'Готово'}</small></button>)}<p className="hand-note checklist-note" aria-hidden="true">{handNote}</p></section>
 }
 
 function Today({ viewer, profile, setProfile, data, update, date, setDate, notify }) {
