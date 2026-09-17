@@ -14,10 +14,11 @@ function pickNextPhrase(phrases) {
     .sort((a, b) => (Number(a.shownCount) || 0) - (Number(b.shownCount) || 0) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0] || null
 }
 
-function MessageCard({ title, text, emptyText, eyebrow }) {
+function MessageCard({ title, text, emptyText, eyebrow, handNote }) {
   return <section className={`daily-message-card ${text ? 'has-message' : ''}`} aria-label={title}>
     <div className="daily-message-heading"><div><span className="section-label">{eyebrow}</span><h2>{title}</h2></div><Heart aria-hidden="true" /></div>
     {text ? <blockquote>{text}</blockquote> : <div className="daily-message-empty"><MessageSquareText aria-hidden="true" /><span>{emptyText}</span></div>}
+    <p className="hand-note message-hand-note" aria-hidden="true">{handNote}</p>
   </section>
 }
 
@@ -66,9 +67,9 @@ export function DailyMessages({ viewer, date, data, update, notify }) {
 
   if (viewer.id === DANYA_ID) {
     const message = data.directMessages.find(item => item.fromUserId === VIKA_ID && item.toUserId === DANYA_ID && item.showDate === date)
-    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Сегодня пока без послания" />
+    return <MessageCard eyebrow="ДЛЯ ТЕБЯ" title="Послание от Викуси" text={message?.text} emptyText="Послание ещё не прилетело" handNote="Маленькие шаги тоже считаются" />
   }
-  return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Пока послания нет" />
+  return <MessageCard eyebrow="ОТ ДАНИ" title="Послание дня от Дани" text={shownPhrase?.text} emptyText="Послание ещё не прилетело" handNote="Ты уже молодец" />
 }
 
 function PhraseModal({ initial, onClose, onSave }) {

@@ -676,3 +676,261 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .goal-history > article { flex-direction: column; }
   .goal-history article > small { max-width: none; text-align: left; }
 }
+
+/* v1.1 — compact, flat, diary-like geometry shared by both profile themes. */
+:root {
+  --accent-soft: #dbe8ae;
+  --accent-muted: #394329;
+  --accent-dark: var(--accent-muted);
+  --border-accent: var(--accent-border);
+  --track: var(--border);
+}
+.desktop-bg.theme-vika {
+  --accent-soft: #ffd8e8;
+  --accent-muted: #4b3540;
+  --accent-dark: var(--accent-muted);
+  --border-accent: var(--accent-border);
+  --track: var(--border);
+}
+
+/* Reset inherited template roundness, then opt components into 4/6/8 px roles. */
+#root * { border-radius: 0 !important; }
+#root .avatar,
+#root .calorie-ring,
+#root .calorie-ring > div,
+#root .checklist-row.auto::before { border-radius: 50% !important; }
+#root .storage-status,
+#root .day-status,
+#root .weight-goal-head > span,
+#root .template-items-head span,
+#root .recipe-badge,
+#root .trend,
+#root .checklist-head > span,
+#root .workout-list-head > span,
+#root .expand-sets > span,
+#root .phrase-group-title span,
+#root .food-icon,
+#root .progress,
+#root .mini-progress,
+#root .goal-progress,
+#root .progress i,
+#root .mini-progress i,
+#root .goal-progress i { border-radius: var(--radius-sm) !important; }
+
+#root button:not(.bottom-nav button),
+#root input,
+#root select,
+#root textarea,
+#root .profile-switch,
+#root .search,
+#root .selected-food,
+#root .calculation,
+#root .toast,
+#root .recipe-favorite span { border-radius: var(--radius-control) !important; }
+
+#root .offline-notice,
+#root .login-card,
+#root .brand-mark,
+#root .empty-icon,
+#root .sheet,
+#root .macro-card,
+#root .meal-section,
+#root .note-card,
+#root .settings-card,
+#root .day-empty,
+#root .history-list > button,
+#root .product-list article,
+#root .login-offline,
+#root .sync-error,
+#root .history-modes,
+#root .current-week-button,
+#root .week-empty,
+#root .week-summary,
+#root .week-days,
+#root .report-table,
+#root .week-assessment,
+#root .average-grid > div,
+#root .weight-overview,
+#root .weight-chart-card,
+#root .weight-list-card,
+#root .weight-goal-card,
+#root .weight-goal-grid > div,
+#root .weight-stats > div,
+#root .weight-empty,
+#root .weight-periods,
+#root .weight-chart-wrap,
+#root .chart-empty,
+#root .replace-hint,
+#root .frequent-food-grid button,
+#root .meal-template-picker button,
+#root .template-item-form,
+#root .repeat-summary,
+#root .analytics-periods,
+#root .analytics-card,
+#root .insight-card,
+#root .analytics-empty,
+#root .analytics-summary > div,
+#root .analytics-macros > div,
+#root .analytics-weight-grid > div,
+#root .analytics-chart-wrap,
+#root .analytics-chart-empty,
+#root .bulk-mode-bar,
+#root .duplicate-warning,
+#root .recipe-warning,
+#root .recipe-version-note,
+#root .habit-days,
+#root .app-info dl div,
+#root .app-update,
+#root .nutrition-current,
+#root .recipe-empty,
+#root .recipe-ingredient,
+#root .recipe-preview,
+#root .recipe-preview-block,
+#root .recipe-portions > div,
+#root .today-checklist,
+#root .workouts-empty,
+#root .workout-details,
+#root .past-workout,
+#root .past-empty,
+#root .past-exercises > div,
+#root .workout-exercise-card,
+#root .workout-set,
+#root .past-exercise-result,
+#root .exercise-history-list > div,
+#root .exercise-progress-grid > span,
+#root .workout-exercises-empty,
+#root .exercise-library-empty,
+#root .daily-message-card,
+#root .tomorrow-message-card,
+#root .phrase-list-empty,
+#root .phrase-row,
+#root .phrase-group-empty { border-radius: var(--radius) !important; }
+
+.weight-goal-card,
+.daily-message-card.has-message { background: var(--accent-dark); }
+.weight-goal-grid > div,
+.weight-chart-wrap,
+.chart-empty,
+.analytics-chart-wrap,
+.ingredient-actions button,
+.recipe-ingredient > .ingredient-nutrition,
+.recipe-preview,
+.difficulty-quick button,
+.exercise-search,
+.phrase-meta button { background: var(--bg); }
+.add-weight-button { box-shadow: none; }
+
+.history-modes,
+.weight-periods,
+.analytics-periods { gap: 1px; padding: 3px; border: 1px solid var(--border); background: var(--bg); }
+.history-modes button.active,
+.weight-periods button.active,
+.analytics-periods button.active,
+.product-type-filters button.active,
+.habit-days button.active,
+.difficulty-quick button.active { background: var(--accent-dark); color: var(--text); border-color: var(--accent-border); }
+.bottom-nav button.active { color: var(--accent); }
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .scroll-area { padding-top: max(12px,env(safe-area-inset-top)); }
+  .page-head { margin-bottom: 14px; }
+  .sheet { max-height: calc(100dvh - 12px); }
+}
+
+/* v1.2 — Today as a warm, personal family journal. */
+.hand-note {
+  max-width: 100%;
+  margin: 0;
+  color: var(--accent);
+  font-family: "Segoe Print","Bradley Hand",cursive;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: .01em;
+  overflow-wrap: anywhere;
+}
+.storage-status { min-height: 24px; margin-bottom: 9px; padding: 2px 7px; font-size: 9px; letter-spacing: .03em; }
+.today-topbar { position: relative; align-items: flex-start; gap: 14px; margin-bottom: 12px; padding: 5px 2px 14px; border-bottom: 1px solid var(--border); }
+.today-identity { min-width: 0; flex: 1; }
+.today-identity .eyebrow::after { margin-left: 7px; content: '♡'; font-family: Georgia,serif; font-size: 15px; letter-spacing: 0; }
+.greeting-title { margin-bottom: 5px; font-family: "Segoe Print","Bradley Hand",cursive; font-size: clamp(27px,8vw,34px); font-weight: 600; line-height: 1.18; letter-spacing: -.035em; text-wrap: balance; }
+.today-subtitle { max-width: 31ch; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.today-profile-switch { margin: 10px 0 0 !important; padding: 2px; background: transparent; }
+.today-profile-switch button { min-height: 44px; padding: 0 13px; font-size: 11px; }
+.today-topbar .avatar { width: 44px; height: 44px; border: 1px solid var(--accent-border); background: var(--accent-dark); color: var(--accent); }
+
+.daily-message-card { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; padding: 12px 14px; border-color: var(--accent-border); background: var(--accent-dark); }
+.daily-message-heading { grid-column: 1 / -1; }
+.daily-message-heading h2 { font-size: 14px; }
+.daily-message-card blockquote { grid-column: 1; margin: 6px 0 0; font-size: 13px; font-weight: 500; line-height: 1.5; }
+.daily-message-empty { grid-column: 1; margin-top: 5px; }
+.message-hand-note { grid-column: 2; grid-row: 2; align-self: end; max-width: 135px; text-align: right; transform: rotate(-2deg); }
+
+.macro-card { display: grid; grid-template-columns: 104px minmax(0,1fr); align-items: center; gap: 16px; padding: 14px; }
+.calorie-ring { width: 104px; height: 104px; padding: 8px; background: conic-gradient(var(--accent) var(--calorie-progress),var(--track) 0); display: grid; place-items: center; }
+.calorie-ring > div { width: 100%; height: 100%; border: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.calorie-ring strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.calorie-ring span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.calorie-ring small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.macro-journal { min-width: 0; }
+.macro-journal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.macro-journal-head h2 { font-size: 15px; line-height: 1.3; }
+.macro-journal-head .remaining { flex: none; }
+.macro-card .macro-grid { gap: 0; border-top: 1px solid var(--border); }
+.macro-card .macro-grid > div { min-width: 0; padding: 10px 7px 0; border-left: 1px solid var(--border); }
+.macro-card .macro-grid > div:first-child { padding-left: 0; border-left: 0; }
+.macro-card .macro-grid span { font-size: 10px; }
+.macro-card .macro-grid strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.macro-card .macro-grid small { color: var(--muted); font-size: 9px; font-weight: 500; white-space: nowrap; }
+
+.meal-section { padding: 8px 10px 10px; }
+.meal-tabs { gap: 0; padding: 0 0 7px; border-bottom: 1px solid var(--border); }
+.meal-tabs button { position: relative; flex: 1; min-width: max-content; padding: 0 8px; border: 0; color: var(--muted); }
+.meal-tabs button.active { background: transparent; color: var(--accent); }
+.meal-tabs button.active::after { position: absolute; right: 8px; bottom: 0; left: 8px; height: 2px; background: var(--accent); content: ''; }
+.meal-list { min-width: 0; }
+.meal-empty { min-height: 92px; padding: 14px 8px 12px; }
+.meal-empty .empty-icon { width: 34px; height: 34px; border: 0; background: transparent; }
+.meal-empty .empty-icon svg { width: 20px; }
+.meal-empty strong { margin-top: 2px; font-size: 13px; }
+.meal-empty span { max-width: 33ch; line-height: 1.45; }
+.meal-row { min-height: 66px; padding: 11px 6px; }
+.meal-row > strong { font-variant-numeric: tabular-nums; }
+.meal-quick-actions { gap: 6px; margin-top: 4px; }
+.meal-quick-actions button { min-height: 44px; padding: 0 7px; border-color: transparent; background: transparent; color: var(--muted); }
+.meal-quick-actions button:hover { border-color: var(--border); background: var(--surface2); color: var(--text); }
+.meal-total { margin-top: 3px; padding-top: 11px; padding-bottom: 11px; }
+
+.note-card { padding: 14px; }
+.note-card textarea { min-height: 72px; margin-top: 8px; background: transparent; line-height: 1.5; }
+.note-title label { font-size: 15px; }
+.note-empty { margin: 7px 0 0; }
+.note-footer { margin-top: 7px; }
+
+.today-checklist { padding: 14px 14px 11px; background: color-mix(in srgb,var(--surface) 88%,var(--accent-dark)); }
+.checklist-head { margin-bottom: 2px; }
+.checklist-row { min-height: 46px; padding: 9px 0; font-size: 12px; }
+.checklist-row.auto::before { width: 7px; height: 7px; box-shadow: 0 0 0 3px var(--accent-dark); }
+.checklist-row.habit.done { color: var(--muted); }
+.checklist-row.habit.done span { text-decoration: none; }
+.checklist-row.habit.done small { color: var(--accent); }
+.checklist-note { max-width: 250px; margin: 10px 0 1px auto; padding-top: 8px; border-top: 1px solid var(--border); text-align: right; transform: rotate(-1deg); }
+
+.bottom-nav button.active { background: transparent; }
+
+@media (max-width: 400px) {
+  .macro-card { grid-template-columns: 92px minmax(0,1fr); gap: 11px; padding: 12px; }
+  .calorie-ring { width: 92px; height: 92px; padding: 7px; }
+  .macro-journal-head .remaining span { display: none; }
+  .macro-card .macro-grid > div { padding-right: 4px; padding-left: 4px; }
+  .macro-card .macro-grid strong { font-size: 15px; }
+  .message-hand-note { max-width: 105px; font-size: 11px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .today-topbar { margin-bottom: 10px; padding-bottom: 10px; }
+  .greeting-title { font-size: 26px; }
+  .today-subtitle { font-size: 11px; }
+  .macro-card { grid-template-columns: 88px minmax(0,1fr); }
+  .calorie-ring { width: 88px; height: 88px; padding: 7px; }
+}

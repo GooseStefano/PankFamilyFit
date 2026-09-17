@@ -66,10 +66,13 @@ function MacroCard({ total, goal }) {
   const pct = Math.min(100, goal.calories ? total.calories / goal.calories * 100 : 0)
   const macros = [['Белки', total.protein, goal.protein], ['Жиры', total.fat, goal.fat], ['Углеводы', total.carbs, goal.carbs]]
   return <section className="macro-card" aria-label="Итоги КБЖУ">
-    <div className="calorie-head"><div><span className="section-label">КАЛОРИИ</span><div className="calories">{round(total.calories)} <small>/ {goal.calories}</small></div></div>
+    <div className="calorie-ring" role="progressbar" aria-label="Прогресс калорий" aria-valuemin="0" aria-valuemax="100" aria-valuenow={round(pct)} style={{ '--calorie-progress': `${pct * 3.6}deg` }}>
+      <div><strong>{round(total.calories)}</strong><span>из {goal.calories}</span><small>ккал</small></div>
+    </div>
+    <div className="macro-journal"><div className="macro-journal-head"><div><span className="section-label">ДНЕВНИК ПИТАНИЯ</span><h2>Калории на сегодня</h2></div>
       <div className="remaining"><Flame size={17} aria-hidden="true" /><span>Осталось</span><strong>{Math.max(0, round(goal.calories - total.calories))}</strong></div></div>
-    <div className="progress" role="progressbar" aria-label="Прогресс калорий" aria-valuemin="0" aria-valuemax="100" aria-valuenow={round(pct)}><i style={{ width: `${pct}%` }} /></div>
-    <div className="macro-grid">{macros.map(([label, val, max]) => <div key={label}><span>{label}</span><strong>{round(val)} <small>/ {max} г</small></strong></div>)}</div>
+      <div className="macro-grid">{macros.map(([label, val, max]) => <div key={label}><span>{label}</span><strong>{round(val)}</strong><small>из {max} г</small></div>)}</div>
+    </div>
   </section>
 }
 
@@ -335,9 +338,9 @@ function DayNote({ value, onSave, onDelete }) {
   useEffect(() => setDraft(value || ''), [value])
   return <section className="note-card">
     <div className="note-title"><label htmlFor="day-note">Заметка на день</label>{hasSaved && <button className="note-delete" aria-label="Удалить заметку" onClick={onDelete}><Trash2 /></button>}</div>
-    {!hasSaved && !draft && <div className="note-empty"><MessageSquareText aria-hidden="true" /><span>Комментария к этому дню пока нет.</span></div>}
+    {!hasSaved && !draft && <div className="note-empty"><MessageSquareText aria-hidden="true" /><span>Пару слов для себя — если хочется.</span></div>}
     <textarea id="day-note" value={draft} onChange={e => setDraft(e.target.value)} placeholder="Что хочется запомнить?" />
-    <div className="note-footer"><span>{draft === value ? 'Все изменения сохранены' : 'Есть несохранённые изменения'}</span><button className="secondary" disabled={!draft.trim() || draft === value} onClick={() => onSave(draft.trim())}>Сохранить</button></div>
+    <div className="note-footer"><span>{draft === value ? 'Сохранилось' : 'Есть несохранённые изменения'}</span><button className="secondary" disabled={!draft.trim() || draft === value} onClick={() => onSave(draft.trim())}>Сохранить</button></div>
   </section>
 }
 
@@ -363,7 +366,8 @@ function TodayChecklist({ viewer, profile, data, update, date }) {
     return { ...current, habitCompletions: existing ? current.habitCompletions.filter(item => item.id !== existing.id) : [...current.habitCompletions, { id: crypto.randomUUID(), habitItemId: habit.id, userId: viewer.id, date, createdAt: new Date().toISOString() }] }
   })
   if (!auto.length && !habits.length) return null
-  return <section className="today-checklist" aria-labelledby="today-checklist-title"><div className="checklist-head"><div><span className="section-label">СЕГОДНЯ НУЖНО</span><h2 id="today-checklist-title">На сегодня</h2></div><span>{auto.length + habits.length}</span></div>{auto.map(item => <div className="checklist-row auto" key={item}><span>{item}</span></div>)}{habits.map(habit => <button className={`checklist-row habit ${completedIds.has(habit.id) ? 'done' : ''}`} key={habit.id} aria-pressed={completedIds.has(habit.id)} onClick={() => toggleHabit(habit)}><CheckCircle2 aria-hidden="true" /><span>{habit.name}</span><small>{completedIds.has(habit.id) ? 'Сделано' : 'Готово'}</small></button>)}</section>
+  const handNote = profile.id === 'vika' ? 'Забота о себе — это тоже победа' : 'Дисциплина сегодня — свобода завтра'
+  return <section className="today-checklist" aria-labelledby="today-checklist-title"><div className="checklist-head"><div><span className="section-label">СПИСОК ЗАБОТЫ</span><h2 id="today-checklist-title">На сегодня</h2></div><span>{auto.length + habits.length}</span></div>{auto.map(item => <div className="checklist-row auto" key={item}><span>{item}</span></div>)}{habits.map(habit => <button className={`checklist-row habit ${completedIds.has(habit.id) ? 'done' : ''}`} key={habit.id} aria-pressed={completedIds.has(habit.id)} onClick={() => toggleHabit(habit)}><CheckCircle2 aria-hidden="true" /><span>{habit.name}</span><small>{completedIds.has(habit.id) ? 'Сделано' : 'Готово'}</small></button>)}<p className="hand-note checklist-note" aria-hidden="true">{handNote}</p></section>
 }
 
 function Today({ viewer, profile, setProfile, data, update, date, setDate, notify }) {
@@ -426,13 +430,13 @@ function Today({ viewer, profile, setProfile, data, update, date, setDate, notif
     update(d => { const notes = { ...d.notes }; delete notes[noteKey]; return { ...d, notes } }); notify('Запись удалена')
   }
   return <>
-    <div className="topbar"><div><p className="eyebrow">PANK FAMILY FIT</p><h1>Привет, {profile.name}</h1>{viewer.role === 'admin' && <div className="profile-switch">{USERS.map(u => <button key={u.id} className={profile.id === u.id ? 'active' : ''} onClick={() => setProfile(u)}>{u.name}</button>)}</div>}</div><div className="avatar">{profile.name[0]}</div></div>
+    <div className="topbar today-topbar"><div className="today-identity"><p className="eyebrow">PANK FAMILY FIT</p><h1 className="greeting-title">Привет, {profile.name}!</h1><p className="today-subtitle">{profile.id === 'vika' ? 'Мягко, спокойно, по чуть-чуть.' : 'Сегодня без геройства, просто по плану.'}</p>{viewer.role === 'admin' && <div className="profile-switch today-profile-switch">{USERS.map(u => <button key={u.id} className={profile.id === u.id ? 'active' : ''} onClick={() => setProfile(u)}>{u.name}</button>)}</div>}</div><div className="avatar">{profile.name[0]}</div></div>
     <DailyMessages viewer={viewer} date={date} data={data} update={update} notify={notify} />
     <DayPicker date={date} setDate={setDate} />
     <MacroCard total={total} goal={goal} />
     {date !== todayISO() && dayIsEmpty && <div className="day-empty"><FileQuestion aria-hidden="true" /><div><strong>На {prettyDate(date)} нет истории</strong><span>Добавь еду или комментарий, чтобы создать запись дня.</span></div></div>}
     <section className="meal-section"><div className="meal-tabs" role="tablist">{Object.entries(MEALS).map(([k, v]) => <button role="tab" aria-selected={meal === k} className={meal === k ? 'active' : ''} key={k} onClick={() => setMeal(k)}>{v}</button>)}</div>
-      <div className="meal-list">{mealEntries.length === 0 ? <div className="empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>Пока ничего не добавлено</strong><span>Добавь первую запись.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Повторить ${e.foodName}`} onClick={() => setModal({ repeat: e })}><Copy /></button><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
+      <div className="meal-list">{mealEntries.length === 0 ? <div className="empty meal-empty"><div className="empty-icon"><CookingPot aria-hidden="true" /></div><strong>Пока ничего не добавлено</strong><span>Добавь первую запись, когда будет удобно.</span></div> : mealEntries.map(e => <article className="meal-row" key={e.id}><div><strong>{e.foodName}</strong><span>{e.amount} {UNIT_LABELS[e.unit] || e.unit} · Б {round(e.protein)} · Ж {round(e.fat)} · У {round(e.carbs)}</span></div><strong>{round(e.calories)} <small>ккал</small></strong><div className="row-actions"><button aria-label={`Повторить ${e.foodName}`} onClick={() => setModal({ repeat: e })}><Copy /></button><button aria-label={`Изменить ${e.foodName}`} onClick={() => setModal({ entry: e })}><Pencil /></button><button aria-label={`Удалить ${e.foodName}`} onClick={() => remove(e.id)}><Trash2 /></button></div></article>)}</div>
       <div className="meal-quick-actions"><button className="secondary" onClick={repeatLastMeal}><Copy aria-hidden="true" />Как обычно</button><button className="secondary" onClick={repeatYesterdayMeal}><Copy aria-hidden="true" />Повторить из вчера</button></div>{templates.length > 0 && <><button className="secondary meal-repeat" aria-expanded={templatesOpen} onClick={() => setTemplatesOpen(value => !value)}><CookingPot aria-hidden="true" />{templatesOpen ? 'Скрыть шаблоны' : `Шаблоны (${templates.length})`}</button>{templatesOpen && <div className="meal-template-picker">{templates.map(template => <button key={template.id} onClick={() => applyTemplate(template)}><span><strong>{template.name}</strong><small>{MEALS[template.mealType]} · {data.mealTemplateItems.filter(item => item.templateId === template.id).length} поз.</small></span><Plus aria-hidden="true" /></button>)}</div>}</>}<div className="meal-total"><span>Итого за приём</span><strong>{round(mealTotal.calories)} ккал</strong></div><button className="primary wide" onClick={() => setModal({ meal, date })}><Plus aria-hidden="true" />Добавить еду</button>
     </section>
     <DayNote key={noteKey} value={note} onSave={saveNote} onDelete={deleteNote} />
